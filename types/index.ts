@@ -81,6 +81,7 @@ export interface BuscaPrecoPayload {
 
 export interface BuscaApresentacoesPayload {
   query: string
+  lojas?: Farmacia[]
 }
 
 // Estado da geolocalização

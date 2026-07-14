@@ -43,7 +43,7 @@ watch(raio, async () => {
 
 async function handleBuscar() {
   if (!searchQuery.value.trim()) return
-  await buscarApresentacoes(searchQuery.value)
+  await buscarApresentacoes(searchQuery.value, farmaciasAtivas.value)
 }
 
 async function compararSelecionada() {

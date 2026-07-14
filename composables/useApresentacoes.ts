@@ -1,4 +1,4 @@
-import type { ApresentacaoMedicamento } from '~/types'
+import type { ApresentacaoMedicamento, Farmacia } from '~/types'
 
 export function useApresentacoes() {
   const apresentacoes = ref<ApresentacaoMedicamento[]>([])
@@ -6,16 +6,16 @@ export function useApresentacoes() {
   const carregando = ref(false)
   const erro = ref('')
 
-  async function buscar(query: string) {
+  async function buscar(query: string, lojas: Farmacia[] = []) {
     carregando.value = true
     erro.value = ''
     selecionada.value = null
     apresentacoes.value = []
     try {
       apresentacoes.value = await $fetch<ApresentacaoMedicamento[]>('/api/apresentacoes', {
-        method: 'POST', body: { query },
+        method: 'POST', body: { query, lojas },
       })
-      if (!apresentacoes.value.length) erro.value = 'Nenhuma apresentação com EAN confirmado foi encontrada.'
+      if (!apresentacoes.value.length) erro.value = 'Nenhuma apresentação equivalente foi encontrada nas redes selecionadas.'
     } catch (e: any) {
       erro.value = e?.data?.statusMessage || 'Não foi possível buscar apresentações.'
     } finally {

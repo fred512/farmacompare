@@ -15,7 +15,7 @@ const REDES: Array<[RegExp, RedeConfig]> = [
 
 export default defineEventHandler(async (event) => {
   const body = await readBody<BuscaPrecoPayload>(event)
-  if (!body.ean || !body.apresentacao) throw createError({ statusCode: 400, statusMessage: 'Escolha uma apresentação com EAN confirmado.' })
+  if (!body.apresentacao) throw createError({ statusCode: 400, statusMessage: 'Escolha uma apresentação para comparar.' })
   if (!body.farmacias?.length) throw createError({ statusCode: 400, statusMessage: 'Selecione ao menos uma farmácia próxima.' })
 
   const lojasRecebidas: Farmacia[] = body.lojas?.length
@@ -25,10 +25,11 @@ export default defineEventHandler(async (event) => {
 
   const consultas = await mapWithConcurrency(lojas, 3, async loja => {
     const cacheIdentity = `${loja.nome}:${loja.id}`
-    const cached = getCachedPrice(body.ean!, cacheIdentity)
+    const chaveProduto = chaveEquivalencia(body.apresentacao!)
+    const cached = getCachedPrice(chaveProduto, cacheIdentity)
     if (cached) return { result: cached, cached: true }
-    const result = await consultar(loja, body.ean!, body.apresentacao!)
-    setCachedPrice(body.ean!, cacheIdentity, result)
+    const result = await consultar(loja, body.query || body.apresentacao!.principiosAtivos, body.apresentacao!)
+    setCachedPrice(chaveProduto, cacheIdentity, result)
     return { result, cached: false }
   })
 
@@ -41,85 +42,98 @@ export default defineEventHandler(async (event) => {
   } satisfies RespostaPrecos
 })
 
-async function consultar(loja: Farmacia, ean: string, apresentacao: ApresentacaoMedicamento): Promise<ResultadoPreco> {
+async function consultar(loja: Farmacia, query: string, apresentacao: ApresentacaoMedicamento): Promise<ResultadoPreco> {
   const rede = REDES.find(([pattern]) => pattern.test(loja.nome))?.[1]
   try {
     if (rede) {
       const result = rede.playwright
-        ? await consultarComNavegador(loja, rede, ean, apresentacao)
-        : await consultarVtex(loja, rede, ean, apresentacao)
-      return result || indisponivel(loja, apresentacao, `${rede.base}/busca?q=${ean}`)
+        ? await consultarComNavegador(loja, rede, query, apresentacao)
+        : await consultarVtex(loja, rede, query, apresentacao)
+      return result || indisponivel(loja, apresentacao, `${rede.base}/busca?q=${encodeURIComponent(query)}`)
     }
     if (loja.website && websitePublico(loja.website)) {
-      return await consultarSiteGenerico(loja, ean, apresentacao) || indisponivel(loja, apresentacao, loja.website)
+      return await consultarSiteGenerico(loja, query, apresentacao) || indisponivel(loja, apresentacao, loja.website)
     }
     return indisponivel(loja, apresentacao)
   } catch (error) {
     console.warn(`[precos] ${loja.nome}: preço não confirmado`, error)
-    return indisponivel(loja, apresentacao, rede ? `${rede.base}/busca?q=${ean}` : loja.website)
+    return indisponivel(loja, apresentacao, rede ? `${rede.base}/busca?q=${encodeURIComponent(query)}` : loja.website)
   }
 }
 
-async function consultarVtex(loja: Farmacia, rede: RedeConfig, ean: string, apresentacao: ApresentacaoMedicamento) {
+async function consultarVtex(loja: Farmacia, rede: RedeConfig, query: string, apresentacao: ApresentacaoMedicamento) {
   let products: any[] | null = null
   for (let attempt = 0; attempt < 2 && !products; attempt++) {
     try {
-      const response = await fetch(`${rede.base}/api/catalog_system/pub/products/search?fq=alternateIds_Ean:${encodeURIComponent(ean)}`, {
+      const response = await fetch(`${rede.base}/api/catalog_system/pub/products/search?ft=${encodeURIComponent(query)}&_from=0&_to=49`, {
         headers: { Accept: 'application/json', 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(10_000),
       })
       if (response.ok) products = await response.json()
     } catch {}
   }
   if (!products) return null
-  const item = products.flatMap(product => product.items || []).find(productItem => String(productItem.ean || '') === ean)
+  const product = melhorProdutoEquivalente(products, apresentacao)
+  if (!product) return null
+  const item = (product.items || []).find((entry: any) => equivalente(entry.nameComplete || entry.name || product.productName, apresentacao)) || product.items?.[0]
   if (!item) return null
   const seller = item.sellers?.find((entry: any) => entry.commertialOffer?.IsAvailable) || item.sellers?.[0]
   const offer = seller?.commertialOffer
   const preco = offer?.IsAvailable && Number(offer.Price) > 0 ? Number(offer.Price) : null
-  const product = products.find(product => product.items?.includes(item))
   const promocao = preco ? extrairPromocao(offer, preco) : null
+  const apresentacaoEncontrada = { ...apresentacao, marca: String(product.brand || apresentacao.marca) }
   return montarResultado(
     loja,
-    apresentacao,
+    apresentacaoEncontrada,
     promocao?.preco ?? preco,
-    product?.link || `${rede.base}/busca?q=${ean}`,
+    product?.link || `${rede.base}/busca?q=${encodeURIComponent(query)}`,
     promocao ? { precoOriginal: preco, promocao: promocao.descricao, quantidadePromocional: promocao.quantidade } : undefined,
   )
 }
 
-async function consultarComNavegador(loja: Farmacia, rede: RedeConfig, ean: string, apresentacao: ApresentacaoMedicamento) {
+async function consultarComNavegador(loja: Farmacia, rede: RedeConfig, query: string, apresentacao: ApresentacaoMedicamento) {
   return withPage(async page => {
-    const response = await page.request.get(`${rede.base}/api/catalog_system/pub/products/search?fq=alternateIds_Ean:${encodeURIComponent(ean)}`, { timeout: 15_000, headers: { Referer: `${rede.base}/` } })
+    const response = await page.request.get(`${rede.base}/api/catalog_system/pub/products/search?ft=${encodeURIComponent(query)}&_from=0&_to=49`, { timeout: 15_000, headers: { Referer: `${rede.base}/` } })
     if (response.ok()) {
       const products: any[] = await response.json()
-      const item = products.flatMap(product => product.items || []).find(productItem => String(productItem.ean || '') === ean)
+      const product = melhorProdutoEquivalente(products, apresentacao)
+      const item = product?.items?.[0]
       const offer = item?.sellers?.find((entry: any) => entry.commertialOffer?.IsAvailable)?.commertialOffer
-      if (item) return montarResultado(loja, apresentacao, offer?.Price || null, products[0]?.link || `${rede.base}/busca?q=${ean}`)
+      if (item && offer?.Price) return montarResultado(loja, { ...apresentacao, marca: product.brand || apresentacao.marca }, Number(offer.Price), product.link)
     }
-    await page.goto(`${rede.base}/busca?q=${encodeURIComponent(ean)}`, { waitUntil: 'domcontentloaded', timeout: 20_000 })
-    const body = await page.locator('body').innerText()
-    if (!body.includes(ean)) return null
-    const match = body.match(/R\$\s*([\d.]+,\d{2})/)
-    const preco = match ? Number(match[1].replace(/\./g, '').replace(',', '.')) : null
-    return preco ? montarResultado(loja, apresentacao, preco, page.url()) : null
+    await page.goto(`${rede.base}/busca?q=${encodeURIComponent(query)}`, { waitUntil: 'domcontentloaded', timeout: 25_000 })
+    await page.waitForTimeout(2500)
+    const cards = page.locator('article, [data-testid*="product" i], [class*="product-card" i], [class*="ProductCard" i]')
+    for (let index = 0; index < Math.min(await cards.count(), 80); index++) {
+      const card = cards.nth(index)
+      const texto = await card.innerText().catch(() => '')
+      if (!equivalente(texto, apresentacao)) continue
+      const precos = [...texto.matchAll(/R\$\s*([\d.]+,\d{2})/g)].map(match => Number(match[1].replace(/\./g, '').replace(',', '.'))).filter(value => value > 0)
+      if (!precos.length) continue
+      const link = await card.locator('a').first().getAttribute('href').catch(() => null)
+      const url = link ? new URL(link, rede.base).toString() : page.url()
+      const preco = Math.min(...precos)
+      const quantidade = /2\s+por/i.test(texto) ? 2 : undefined
+      return montarResultado(loja, apresentacao, preco, url, quantidade ? { promocao: 'Preço promocional exibido no site', quantidadePromocional: quantidade } : undefined)
+    }
+    return null
   })
 }
 
-async function consultarSiteGenerico(loja: Farmacia, ean: string, apresentacao: ApresentacaoMedicamento) {
+async function consultarSiteGenerico(loja: Farmacia, query: string, apresentacao: ApresentacaoMedicamento) {
   const base = new URL(loja.website!)
   const urls = [...new Set([
-    new URL(`/busca?q=${encodeURIComponent(ean)}`, base).toString(),
-    new URL(`/search?q=${encodeURIComponent(ean)}`, base).toString(),
-    new URL(`/?s=${encodeURIComponent(ean)}`, base).toString(),
+    new URL(`/busca?q=${encodeURIComponent(query)}`, base).toString(),
+    new URL(`/search?q=${encodeURIComponent(query)}`, base).toString(),
+    new URL(`/?s=${encodeURIComponent(query)}`, base).toString(),
   ])]
   return withPage(async page => {
     for (const url of urls) {
       try {
         await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15_000 })
-        const structured = extrairJsonLdExato(await page.locator('script[type="application/ld+json"]').allTextContents(), ean)
+        const structured = extrairJsonLdExato(await page.locator('script[type="application/ld+json"]').allTextContents(), apresentacao.ean)
         if (structured?.preco) return montarResultado(loja, apresentacao, structured.preco, structured.url || page.url())
         const body = await page.locator('body').innerText({ timeout: 5_000 })
-        if (!body.includes(ean)) continue
+        if (!equivalente(body, apresentacao)) continue
         const match = body.match(/R\$\s*([\d.]+,\d{2})/)
         const preco = match ? Number(match[1].replace(/\./g, '').replace(',', '.')) : null
         if (preco && preco > 0) return montarResultado(loja, apresentacao, preco, page.url())
@@ -142,6 +156,41 @@ function montarResultado(
     confiabilidade: preco === null ? 'indisponivel' : 'online_sem_loja', consultadoEm: new Date().toISOString(),
     ...detalhes,
   }
+}
+
+function melhorProdutoEquivalente(products: any[], apresentacao: ApresentacaoMedicamento) {
+  const equivalentes = products.filter(product => equivalente(String(product.productName || product.productTitle || ''), apresentacao))
+  return equivalentes.sort((a, b) => pontuarProduto(b, apresentacao) - pontuarProduto(a, apresentacao))[0]
+}
+
+function pontuarProduto(product: any, apresentacao: ApresentacaoMedicamento) {
+  const nome = normalizar(String(product.productName || ''))
+  let pontos = 0
+  if (apresentacao.ean && (product.items || []).some((item: any) => String(item.ean || '') === apresentacao.ean)) pontos += 4
+  if (/generico/.test(nome) === /generico/.test(normalizar(apresentacao.nome))) pontos += 2
+  if (normalizar(product.brand || '') === normalizar(apresentacao.marca || '')) pontos += 1
+  return pontos
+}
+
+function equivalente(texto: string, apresentacao: ApresentacaoMedicamento) {
+  const nome = normalizar(texto).replace(/\s+/g, ' ')
+  const doses = (apresentacao.dosagem || apresentacao.nome).match(/\d+(?:[,.]\d+)?\s*(?:mg|mcg|g|ml)/gi) || []
+  const dosesConferem = doses.every(dose => nome.replace(/\s+/g, '').includes(normalizar(dose).replace(/\s+/g, '')))
+  if (!dosesConferem) return false
+  const quantidade = apresentacao.quantidade
+  if (quantidade <= 1) return true
+  const unidade = apresentacao.unidade === 'comprimido' ? 'comprim' : apresentacao.unidade === 'cápsula' ? 'caps' : apresentacao.unidade
+  return new RegExp(`(?:com\\s+)?${quantidade}\\s*(?:${unidade}|unidade)`, 'i').test(nome)
+}
+
+function chaveEquivalencia(item: ApresentacaoMedicamento) {
+  const principio = normalizar(item.principiosAtivos || '').replace(/[^a-z0-9]+/g, ' ').trim()
+  const dose = normalizar(item.dosagem || '').replace(/\s+/g, '')
+  return `${principio}|${dose}|${item.quantidade}|${item.unidade}`
+}
+
+function normalizar(value: string) {
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 }
 
 function extrairPromocao(offer: any, preco: number) {
@@ -176,7 +225,7 @@ function indisponivel(loja: Farmacia, apresentacao: ApresentacaoMedicamento, url
 }
 
 function formatarApresentacao(item: ApresentacaoMedicamento) {
-  return `${item.dosagem ? `${item.dosagem} · ` : ''}${item.quantidade} ${item.unidade}${item.quantidade === 1 ? '' : 's'} · EAN ${item.ean}`
+  return `${item.dosagem ? `${item.dosagem} · ` : ''}${item.quantidade} ${item.unidade}${item.quantidade === 1 ? '' : 's'}${item.ean ? ` · EAN de referência ${item.ean}` : ''}`
 }
 
 function websitePublico(value: string) {
