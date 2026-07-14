@@ -17,6 +17,7 @@ const {
 
 const searchQuery = ref('')
 const cep = ref('')
+const CEP_STORAGE_KEY = 'fc_ultimo_cep'
 const inputRef = ref<HTMLInputElement>()
 const mostrarTodasFarmacias = ref(false)
 const tema = ref<'light' | 'dark'>('light')
@@ -37,6 +38,12 @@ onMounted(() => {
     ? salvo
     : window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
   aplicarTema(preferido)
+
+  const cepSalvo = localStorage.getItem(CEP_STORAGE_KEY)?.replace(/\D/g, '') || ''
+  if (cepSalvo.length === 8) {
+    cep.value = cepSalvo.replace(/^(\d{5})(\d{3})$/, '$1-$2')
+    void geo.buscarCep(cep.value)
+  }
 })
 
 const farmaciasVisiveis = computed(() =>
@@ -79,6 +86,9 @@ async function compararSelecionada() {
 async function aplicarCep() {
   if (cep.value.replace(/\D/g, '').length !== 8) return
   await geo.buscarCep(cep.value)
+  if (geo.status.value === 'success') {
+    localStorage.setItem(CEP_STORAGE_KEY, geo.cepSugerido.value.replace(/\D/g, ''))
+  }
 }
 
 async function reiniciarPesquisa() {
@@ -103,7 +113,9 @@ function formatarValor(value: number) {
 }
 
 watch(() => geo.cepSugerido.value, (value) => {
-  if (value && !cep.value) cep.value = value
+  if (!value) return
+  if (!cep.value) cep.value = value
+  localStorage.setItem(CEP_STORAGE_KEY, value.replace(/\D/g, ''))
 })
 
 function distanciaFarmacia(nomeFarmacia: string): string {
