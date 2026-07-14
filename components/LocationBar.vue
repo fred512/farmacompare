@@ -53,14 +53,14 @@ const clickable = computed(() => ['idle', 'error'].includes(props.status))
 }
 .location-bar.clickable { cursor: pointer; }
 .location-bar.clickable:hover { border-color: var(--border2); }
-.location-bar.success { border-color: var(--green-light); }
+.location-bar.success { border-color: var(--success-light); }
 
 .pin-icon {
   width: 14px; height: 14px;
   fill: var(--text3);
   flex-shrink: 0;
 }
-.success .pin-icon { fill: var(--green); }
+.success .pin-icon { fill: var(--success); }
 
 .loc-label {
   flex: 1;
@@ -72,7 +72,7 @@ const clickable = computed(() => ['idle', 'error'].includes(props.status))
 }
 
 .cta { font-size: 11px; color: var(--green); font-weight: 500; white-space: nowrap; }
-.ok-badge { font-size: 12px; color: var(--green); font-weight: 600; }
+.ok-badge { font-size: 12px; color: var(--success); font-weight: 600; }
 
 .spinner-sm {
   display: inline-block;
