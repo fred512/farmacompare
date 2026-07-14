@@ -96,6 +96,11 @@ async function reiniciarPesquisa() {
 }
 
 const comparacaoSemPreco = computed(() => Boolean(resultado.value && !disponiveis.value.length && indisponiveis.value.length))
+const outrasOfertas = computed(() => disponiveis.value.filter(item => item !== melhorPreco.value))
+
+function formatarValor(value: number) {
+  return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
 
 watch(() => geo.cepSugerido.value, (value) => {
   if (value && !cep.value) cep.value = value
@@ -364,13 +369,20 @@ useSeoMeta({
             <p>As farmácias encontradas neste raio não possuem integração de preço disponível. Você pode consultar cada loja abaixo.</p>
           </div>
         </div>
-        <!-- Dica de economia -->
-        <div v-if="economia > 0.5" class="save-card">
-          <span class="save-icon">💡</span>
-          <div class="save-text">
-            Comprando na <strong>{{ melhorPreco?.farmacia }}</strong> você economiza
-            <strong>R$ {{ economia.toFixed(2) }}</strong> em relação à mais cara.
+        <!-- Herói: menor preço encontrado -->
+        <div v-if="melhorPreco && disponiveis.length" class="hero-winner">
+          <span class="hero-blob" aria-hidden="true" />
+          <div class="hero-eyebrow">Menor preço encontrado</div>
+          <div class="hero-pharm">{{ melhorPreco.farmacia }}</div>
+          <div class="hero-price">
+            <span class="hero-cur">R$</span>{{ formatarValor(melhorPreco.preco!) }}
           </div>
+          <div v-if="economia > 0.5" class="hero-save">
+            você economiza <strong>R$ {{ formatarValor(economia) }}</strong> vs. a mais cara
+          </div>
+          <a v-if="melhorPreco.url" :href="melhorPreco.url" target="_blank" rel="noopener" class="hero-cta">
+            Ver oferta ↗
+          </a>
         </div>
 
         <!-- Header dos resultados -->
@@ -391,10 +403,10 @@ useSeoMeta({
         <!-- Cards de preço -->
         <div class="result-list">
           <PrecoCard
-            v-for="(item, i) in disponiveis"
+            v-for="(item, i) in outrasOfertas"
             :key="item.farmaciaId || `${item.farmacia}-${i}`"
             :item="item"
-            :is-best="i === 0"
+            :is-best="false"
             :diff="item.preco! - (melhorPreco?.preco ?? 0)"
             :distancia="distanciaFarmacia(item.farmacia)"
             :index="i"
@@ -460,7 +472,7 @@ header {
   display: flex; align-items: center; justify-content: center;
 }
 .logo-mark svg { width: 14px; height: 14px; fill: white; }
-.logo-name { font-size: 15px; font-weight: 600; color: var(--text); letter-spacing: -0.3px; }
+.logo-name { font-family: var(--display); font-size: 17px; font-weight: 700; color: var(--text); letter-spacing: -0.4px; }
 .logo-name span { color: var(--green); }
 .theme-toggle {
   margin-left:auto;
@@ -666,17 +678,105 @@ main { max-width: 600px; margin: 0 auto; padding: 1.25rem 1rem 5rem; }
   margin-bottom: .85rem;
 }
 
-.save-card {
-  background: var(--green-bg);
-  border: 0.5px solid var(--green-light);
-  border-radius: var(--radius);
-  padding: .9rem 1.1rem;
-  display: flex; align-items: center; gap: 10px;
+.hero-winner {
+  position: relative;
+  overflow: hidden;
   margin-bottom: .85rem;
+  padding: 1.4rem 1.3rem 1.25rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--green-light);
+  background:
+    radial-gradient(130% 130% at 100% 0%, var(--green-bg) 0%, transparent 62%),
+    var(--surface);
+  box-shadow: 0 1px 0 var(--green-light), 0 22px 50px -30px var(--green);
+  animation: heroIn .5s cubic-bezier(.2, .75, .2, 1) both;
 }
-.save-icon { font-size: 18px; flex-shrink: 0; }
-.save-text { font-size: 13px; color: var(--green); line-height: 1.4; }
-.save-text strong { font-weight: 600; }
+.hero-blob {
+  position: absolute;
+  top: -55px; right: -45px;
+  width: 190px; height: 190px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--green) 0%, transparent 68%);
+  opacity: .13;
+  filter: blur(6px);
+  pointer-events: none;
+  animation: heroPulse 5.5s ease-in-out infinite;
+}
+.hero-eyebrow {
+  position: relative;
+  font: 500 10px/1 var(--font);
+  letter-spacing: .15em;
+  text-transform: uppercase;
+  color: var(--green);
+}
+.hero-pharm {
+  position: relative;
+  margin-top: 9px;
+  font: 600 15px var(--font);
+  color: var(--text);
+}
+.hero-price {
+  position: relative;
+  margin-top: 2px;
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: 3.5rem;
+  line-height: .95;
+  letter-spacing: -.035em;
+  color: var(--green);
+  animation: heroPrice .55s .12s cubic-bezier(.2, .8, .2, 1) both;
+}
+.hero-cur {
+  font-size: 1.35rem;
+  font-weight: 700;
+  vertical-align: top;
+  margin-right: 5px;
+  letter-spacing: 0;
+  opacity: .72;
+}
+.hero-save {
+  position: relative;
+  margin-top: 9px;
+  font-size: 12px;
+  color: var(--text2);
+}
+.hero-save strong { color: var(--green); font-weight: 600; }
+.hero-cta {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  margin-top: 14px;
+  min-height: 34px;
+  padding: 0 15px;
+  border-radius: 999px;
+  background: var(--green);
+  color: #fff;
+  font: 600 12px var(--font);
+  text-decoration: none;
+  transition: opacity .15s, transform .15s;
+}
+:root[data-theme='dark'] .hero-cta { color: #0e1a13; }
+.hero-cta:hover { opacity: .9; transform: translateY(-1px); }
+
+@keyframes heroIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes heroPrice {
+  from { opacity: 0; transform: translateY(8px) scale(.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes heroPulse {
+  0%, 100% { opacity: .10; transform: scale(1); }
+  50%      { opacity: .18; transform: scale(1.08); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-winner, .hero-price { animation: none; }
+  .hero-blob { animation: none; }
+}
+@media (max-width: 520px) {
+  .hero-price { font-size: 3rem; }
+}
 
 .results-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .results-query { font-size: 13px; color: var(--text2); }

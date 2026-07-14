@@ -90,7 +90,11 @@ const brandStyle = computed((): [string, string, string] => {
   animation: fadeUp 0.25s ease both;
 }
 .preco-card:hover { border-color: var(--border2); }
-.preco-card.best { border: 1px solid var(--green); }
+.preco-card.best {
+  border: 1px solid var(--green);
+  background: linear-gradient(100deg, var(--green-bg) 0%, transparent 42%), var(--surface);
+  box-shadow: 0 16px 36px -24px var(--green);
+}
 
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(6px); }

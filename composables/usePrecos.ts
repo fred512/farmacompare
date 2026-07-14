@@ -57,7 +57,10 @@ export function usePrecos() {
   )
 
   const melhorPreco = computed<ResultadoPreco | null>(() =>
-    disponiveis.value[0] ?? null
+    disponiveis.value.reduce<ResultadoPreco | null>(
+      (melhor, item) => !melhor || item.preco! < melhor.preco! ? item : melhor,
+      null,
+    )
   )
 
   const economia = computed<number>(() => {
