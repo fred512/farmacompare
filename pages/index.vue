@@ -1,4 +1,5 @@
 <script setup lang="ts">
+const config = useRuntimeConfig()
 const geo = useGeolocation()
 const {
   farmacias, selecionadas, farmaciasAtivas, farmaciasMaisConsultadas, nomesAtivos,
@@ -434,6 +435,7 @@ useSeoMeta({
         </div>
       </div>
     </main>
+    <span class="version-label" aria-label="Versão do aplicativo">v{{ config.public.appVersion }}</span>
   </div>
 </template>
 
@@ -479,6 +481,22 @@ header {
 .theme-toggle svg { width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
 
 main { max-width: 600px; margin: 0 auto; padding: 1.25rem 1rem 5rem; }
+.version-label {
+  position:fixed;
+  right:8px;
+  bottom:7px;
+  z-index:10;
+  padding:2px 6px;
+  border:1px solid var(--border);
+  border-radius:999px;
+  background:color-mix(in srgb, var(--surface) 88%, transparent);
+  color:var(--text3);
+  font:500 9px var(--mono);
+  letter-spacing:.02em;
+  opacity:.72;
+  pointer-events:none;
+  backdrop-filter:blur(5px);
+}
 
 .card {
   background: var(--surface);

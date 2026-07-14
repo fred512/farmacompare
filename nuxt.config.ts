@@ -16,6 +16,9 @@ export default defineNuxtConfig({
     // Chaves públicas (expostas ao client)
     public: {
       appName: 'FarmaCompare',
+      appVersion: process.env.RAILWAY_GIT_COMMIT_SHA
+        ? `1.0.0-${process.env.RAILWAY_GIT_COMMIT_SHA.slice(0, 7)}`
+        : '1.0.0-local',
       defaultRadius: 3000, // 3km
     }
   },
