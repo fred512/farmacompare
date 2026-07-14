@@ -11,9 +11,7 @@ export default defineNuxtConfig({
 
   runtimeConfig: {
     // Chaves privadas (só server-side)
-    googlePlacesApiKey: process.env.GOOGLE_PLACES_API_KEY || '',
-    anthropicApiKey: process.env.ANTHROPIC_API_KEY || '',
-    pharmadbApiKey: process.env.PHARMADB_API_KEY || '',
+    googlePlacesApiKey: '',
 
     // Chaves públicas (expostas ao client)
     public: {
@@ -38,12 +36,7 @@ export default defineNuxtConfig({
     }
   },
 
-  nitro: {
-    // Habilita cache nas rotas de API
-    routeRules: {
-      '/api/farmacias-proximas': { cache: { maxAge: 300 } }, // 5 min
-    }
-  },
+  nitro: { preset: 'node-server' },
 
   compatibilityDate: '2024-11-01',
 })

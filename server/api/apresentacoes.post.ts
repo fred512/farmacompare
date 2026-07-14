@@ -1,10 +1,6 @@
 import type { ApresentacaoMedicamento, BuscaApresentacoesPayload, UnidadeDose } from '~/types'
 
-const CATALOGOS = [
-  'https://www.paguemenos.com.br',
-  'https://www.panvel.com',
-  'https://www.ultrafarma.com.br',
-]
+const CATALOGOS = ['https://www.paguemenos.com.br']
 
 export default defineEventHandler(async (event) => {
   const { query } = await readBody<BuscaApresentacoesPayload>(event)
@@ -20,7 +16,7 @@ export default defineEventHandler(async (event) => {
 })
 
 async function buscarCatalogo(base: string, query: string): Promise<ApresentacaoMedicamento[]> {
-  const url = `${base}/api/catalog_system/pub/products/search?fq=ft:${encodeURIComponent(query)}&_from=0&_to=11`
+  const url = `${base}/api/catalog_system/pub/products/search?ft=${encodeURIComponent(query)}&_from=0&_to=19`
   const res = await fetch(url, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(10_000) })
   if (!res.ok) return []
   const produtos = await res.json()

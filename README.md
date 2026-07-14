@@ -1,122 +1,69 @@
 # FarmaCompare
 
-PWA em Nuxt 3 + Vue 3 para comparar preços de remédios nas farmácias mais próximas de você.
+PWA em Nuxt 3 para comparar preços reais de uma apresentação exata de medicamento nas farmácias próximas.
 
-## Funcionalidades
+## Como funciona
 
-- **Geolocalização real** — usa a API do browser para obter coordenadas exatas
-- **Farmácias próximas** — busca no raio configurado (padrão: 3km)
-  - Com chave Google Places: dados reais em tempo real
-  - Sem chave: fallback via OpenStreetMap Overpass API (gratuito)
-- **Comparação de preços**
-  - Com chave PharmaDB: dados oficiais ANVISA/CMED
-  - Com chave Anthropic: preços de mercado via IA
-- **PWA** — instalável no celular como app nativo
-- **Dark mode** automático
+1. O navegador obtém a localização do usuário.
+2. A API encontra farmácias no raio escolhido usando Google Places ou OpenStreetMap/Overpass.
+3. A busca retorna apresentações com EAN confirmado.
+4. O usuário escolhe a apresentação exata.
+5. O servidor consulta cada rede pelo EAN. Valores não confirmados aparecem como indisponíveis, nunca como estimativas.
+6. Os resultados são armazenados em SQLite por 12 horas, por EAN e farmácia.
 
----
+## Desenvolvimento
 
-## Setup
-
-### 1. Instalar dependências
+Requer Node.js 22 e, para as redes protegidas, os navegadores do Playwright.
 
 ```bash
 npm install
-```
-
-### 2. Configurar variáveis de ambiente
-
-```bash
-cp .env.example .env
-```
-
-Edite o `.env`:
-
-```env
-# Obrigatório para preços (escolha um):
-ANTHROPIC_API_KEY=sk-ant-...          # Preços via IA (mais fácil)
-PHARMADB_API_KEY=...                   # Preços reais ANVISA/CMED (mais preciso)
-
-# Opcional para farmácias (sem isso usa OpenStreetMap):
-GOOGLE_PLACES_API_KEY=AIza...          # Farmácias em tempo real via Google
-```
-
-### 3. Rodar em desenvolvimento
-
-```bash
+npx playwright install chromium
 npm run dev
 ```
 
-Acesse: http://localhost:3000
+Copie `.env.example` para `.env` se quiser configurar Google Places ou outro caminho para o banco.
 
-### 4. Build para produção
+## Build local
 
 ```bash
 npm run build
 npm run preview
 ```
 
----
+## Docker
 
-## Estrutura do projeto
+O container inclui Chromium e todas as dependências de sistema necessárias ao Playwright.
 
-```
-farmacompare/
-├── pages/
-│   └── index.vue                  # Página principal
-├── components/
-│   ├── LocationBar.vue            # Barra de localização
-│   ├── FarmaciaItem.vue           # Card de farmácia próxima
-│   └── PrecoCard.vue              # Card de resultado de preço
-├── composables/
-│   ├── useGeolocation.ts          # Geolocalização do browser
-│   ├── useFarmacias.ts            # Busca farmácias próximas
-│   └── usePrecos.ts               # Busca e comparação de preços
-├── server/
-│   └── api/
-│       ├── farmacias-proximas.post.ts   # Endpoint: farmácias próximas
-│       └── precos.post.ts               # Endpoint: comparação de preços
-├── types/
-│   └── index.ts                   # Tipos TypeScript
-├── assets/css/
-│   └── main.css                   # Tokens de design e reset
-├── public/
-│   └── manifest.json              # PWA manifest
-└── nuxt.config.ts                 # Configuração Nuxt
+```bash
+docker build -t farmacompare .
+docker run --rm -p 3000:3000 -v farmacompare-data:/app/data farmacompare
 ```
 
----
+Acesse `http://localhost:3000`. O health check está disponível em `/api/health`.
 
-## APIs utilizadas
+## Railway
 
-| API | Uso | Custo |
-|-----|-----|-------|
-| **Geolocation API** (browser) | Coordenadas do usuário | Grátis |
-| **Nominatim / OSM** | Endereço legível (reverse geocode) | Grátis |
-| **OpenStreetMap Overpass** | Farmácias próximas (fallback) | Grátis |
-| **Google Places API** | Farmácias próximas (produção) | Pago |
-| **Anthropic Claude** | Preços de mercado via IA | Pago |
-| **PharmaDB** | Preços reais ANVISA/CMED | Pago |
+1. Crie um projeto a partir do repositório `fred512/farmacompare`.
+2. O arquivo `railway.toml` selecionará automaticamente o Dockerfile e o health check.
+3. Gere um domínio público em **Settings → Networking**.
+4. Em **Volumes**, crie um volume montado em `/app/data`.
+5. Opcionalmente, adicione `NUXT_GOOGLE_PLACES_API_KEY` em **Variables**.
+6. Mantenha `DATABASE_PATH=/app/data/farmacompare.db`.
 
-### Obter as chaves
+Cada push na branch `main` inicia uma nova publicação.
 
-- **Google Places**: https://console.cloud.google.com → APIs & Services → Places API (New)
-- **Anthropic**: https://console.anthropic.com/settings/keys
-- **PharmaDB**: https://pharmadb.com.br (planos para desenvolvedores)
+## Variáveis
 
----
+| Variável | Obrigatória | Descrição |
+|---|---:|---|
+| `DATABASE_PATH` | não | Caminho do SQLite; padrão local `./data/farmacompare.db` |
+| `NUXT_GOOGLE_PLACES_API_KEY` | não | Ativa Google Places; sem ela usa Overpass |
+| `PORT` | não | Fornecida automaticamente pelo provedor |
 
-## Raio de busca
+## Comandos
 
-O raio padrão é **3km**. Para mudar permanentemente:
-
-```ts
-// nuxt.config.ts
-runtimeConfig: {
-  public: {
-    defaultRadius: 3000 // ← altere aqui (em metros)
-  }
-}
+```bash
+npm run dev
+npm run build
+npm run preview
 ```
-
-O usuário também pode mudar o raio pelo seletor na interface (500m, 1km, 3km, 5km).

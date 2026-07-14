@@ -1,5 +1,6 @@
 import type { ApresentacaoMedicamento, BuscaPrecoPayload, RespostaPrecos, ResultadoPreco } from '~/types'
 import { withPage } from '../services/scrapers/browser'
+import { getCachedPrice, setCachedPrice } from '../services/price-cache'
 
 interface RedeConfig { nome: string; base: string; playwright?: boolean }
 
@@ -21,12 +22,18 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Selecione ao menos uma farmácia próxima.' })
   }
 
-  const resultados = await Promise.all(body.farmacias.map(farmacia => consultar(farmacia, body.ean!, body.apresentacao!)))
+  const consultas = await Promise.all(body.farmacias.map(async farmacia => {
+    const cached = getCachedPrice(body.ean!, farmacia)
+    if (cached) return { result: cached, cached: true }
+    const result = await consultar(farmacia, body.ean!, body.apresentacao!)
+    setCachedPrice(body.ean!, farmacia, result)
+    return { result, cached: false }
+  }))
   return {
     produto_normalizado: body.apresentacao.nome,
     apresentacao: formatarApresentacao(body.apresentacao),
-    resultados,
-    fonte: 'real',
+    resultados: consultas.map(item => item.result),
+    fonte: consultas.every(item => item.cached) ? 'cache' : 'real',
     timestamp: Date.now(),
   } satisfies RespostaPrecos
 })

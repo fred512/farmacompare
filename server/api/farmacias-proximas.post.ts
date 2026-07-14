@@ -19,8 +19,9 @@ export default defineEventHandler(async (event) => {
   }
 
   // --- Google Places Nearby Search (novo endpoint v1) ---
-  if (config.googlePlacesApiKey) {
-    return await buscarViaGooglePlaces({ lat, lng, raio, apiKey: config.googlePlacesApiKey })
+  const googlePlacesApiKey = String(config.googlePlacesApiKey || process.env.GOOGLE_PLACES_API_KEY || '')
+  if (googlePlacesApiKey) {
+    return await buscarViaGooglePlaces({ lat, lng, raio, apiKey: googlePlacesApiKey })
   }
 
   // --- Fallback: Nominatim OSM (gratuito, sem chave) ---
@@ -91,7 +92,7 @@ async function buscarViaOverpass({ lat, lng, raio }: {
   lat: number; lng: number; raio: number
 }): Promise<Farmacia[]> {
   const query = `
-    [out:json][timeout:10];
+    [out:json][timeout:20];
     (
       node["amenity"="pharmacy"](around:${raio},${lat},${lng});
       way["amenity"="pharmacy"](around:${raio},${lat},${lng});
@@ -100,15 +101,28 @@ async function buscarViaOverpass({ lat, lng, raio }: {
     out center 10;
   `
 
-  const res = await fetch('https://overpass-api.de/api/interpreter', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
-    body: `data=${encodeURIComponent(query)}`
-  })
-
-  if (!res.ok) throw new Error('Overpass error')
-
-  const data = await res.json()
+  const endpoints = [
+    'https://overpass-api.de/api/interpreter',
+    'https://overpass.kumi.systems/api/interpreter',
+    'https://overpass.private.coffee/api/interpreter',
+  ]
+  let data: any
+  for (const endpoint of endpoints) {
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+          'User-Agent': 'FarmaCompare/1.0 (https://github.com/fred512/farmacompare)',
+          Accept: 'application/json',
+        },
+        body: `data=${encodeURIComponent(query)}`,
+        signal: AbortSignal.timeout(30_000),
+      })
+      if (res.ok) { data = await res.json(); break }
+    } catch {}
+  }
+  if (!data) throw new Error('Overpass indisponível')
   const elements = data.elements || []
 
   return elements
