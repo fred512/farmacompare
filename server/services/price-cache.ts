@@ -43,5 +43,5 @@ export function setCachedPrice(ean: string, farmacia: string, result: ResultadoP
 }
 
 function cacheKey(ean: string, farmacia: string) {
-  return `v3:${ean}:${farmacia.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()}`
+  return `v4:${ean}:${farmacia.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()}`
 }

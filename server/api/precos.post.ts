@@ -49,7 +49,7 @@ async function consultar(loja: Farmacia, query: string, apresentacao: Apresentac
       const result = rede.playwright
         ? await consultarComNavegador(loja, rede, query, apresentacao)
         : await consultarVtex(loja, rede, query, apresentacao)
-      return result || indisponivel(loja, apresentacao, `${rede.base}/busca?q=${encodeURIComponent(query)}`)
+      return result || indisponivel(loja, apresentacao, urlBusca(rede, query))
     }
     if (loja.website && websitePublico(loja.website)) {
       return await consultarSiteGenerico(loja, query, apresentacao) || indisponivel(loja, apresentacao, loja.website)
@@ -57,7 +57,7 @@ async function consultar(loja: Farmacia, query: string, apresentacao: Apresentac
     return indisponivel(loja, apresentacao)
   } catch (error) {
     console.warn(`[precos] ${loja.nome}: preço não confirmado`, error)
-    return indisponivel(loja, apresentacao, rede ? `${rede.base}/busca?q=${encodeURIComponent(query)}` : loja.website)
+    return indisponivel(loja, apresentacao, rede ? urlBusca(rede, query) : loja.website)
   }
 }
 
@@ -80,7 +80,7 @@ async function consultarVtex(loja: Farmacia, rede: RedeConfig, query: string, ap
     loja,
     apresentacaoEncontrada,
     promocao?.preco ?? preco,
-    product?.link || `${rede.base}/busca?q=${encodeURIComponent(query)}`,
+    product?.link || urlBusca(rede, query),
     promocao ? { precoOriginal: preco, promocao: promocao.descricao, quantidadePromocional: promocao.quantidade } : undefined,
   )
 }
@@ -98,7 +98,7 @@ async function consultarComNavegador(loja: Farmacia, rede: RedeConfig, query: st
         return montarResultado(loja, { ...apresentacao, marca: melhor.product.brand || apresentacao.marca }, melhor.promocao?.preco ?? melhor.preco, melhor.product.link, detalhes)
       }
     }
-    await page.goto(`${rede.base}/busca?q=${encodeURIComponent(query)}`, { waitUntil: 'domcontentloaded', timeout: 25_000 })
+    await page.goto(urlBusca(rede, query), { waitUntil: 'domcontentloaded', timeout: 25_000 })
     await page.waitForTimeout(2500)
     const cards = page.locator('article, [data-testid*="product" i], [class*="product-card" i], [class*="ProductCard" i]')
     for (let index = 0; index < Math.min(await cards.count(), 80); index++) {
@@ -197,6 +197,11 @@ function chaveEquivalencia(item: ApresentacaoMedicamento) {
 
 function normalizar(value: string) {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+}
+
+function urlBusca(rede: RedeConfig, query: string) {
+  const parametro = /drogasil|drogaraia/.test(new URL(rede.base).hostname) ? `/search?w=` : `/busca?q=`
+  return `${rede.base}${parametro}${encodeURIComponent(query)}`
 }
 
 function extrairPromocao(offer: any, preco: number) {
