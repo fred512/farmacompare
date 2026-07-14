@@ -402,10 +402,11 @@ useSeoMeta({
 
         <!-- Sem estoque -->
         <div v-if="indisponiveis.length" class="unavail">
-          <strong>Preço não confirmado</strong>
+          <strong>Preço não confirmado oficialmente</strong>
+          <p>Consulte o valor atualizado diretamente no site da farmácia.</p>
           <div v-for="(item, i) in indisponiveis" :key="item.farmaciaId || `${item.farmacia}-${i}`" class="unavail-item">
             <span>{{ item.farmacia }}</span>
-            <a v-if="item.url" :href="item.url" target="_blank" rel="noopener">consultar no site ↗</a>
+            <a v-if="item.url" :href="item.url" target="_blank" rel="noopener">Pesquisar no site ↗</a>
           </div>
         </div>
 
@@ -683,6 +684,7 @@ main { max-width: 600px; margin: 0 auto; padding: 1.25rem 1rem 5rem; }
   margin-top: 6px;
 }
 .unavail strong { display:block; color:var(--text2); margin-bottom:5px; font-weight:500; }
+.unavail > p { margin:0 0 8px; color:var(--muted); font-size:12px; }
 .restart-wrap { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:18px; padding:14px 0 2px; border-top:.5px solid var(--border2); color:var(--text3); font-size:11px; }
 .restart-button { display:inline-flex; align-items:center; gap:7px; min-height:36px; padding:0 14px; border:1px solid var(--green); border-radius:var(--radius-sm); background:transparent; color:var(--green); font:600 11px var(--font); cursor:pointer; transition:background .15s, color .15s; }
 .restart-button:hover { background:var(--green); color:var(--surface); }
