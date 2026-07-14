@@ -45,6 +45,9 @@ export interface ResultadoPreco {
   marca: string
   url?: string // link direto para compra
   precoUnitario?: number | null
+  precoOriginal?: number | null
+  promocao?: string
+  quantidadePromocional?: number
   unidade?: UnidadeDose
   confiabilidade?: ConfiabilidadePreco
   consultadoEm?: string

@@ -8,7 +8,7 @@ const REDES: Array<[RegExp, RedeConfig]> = [
   [/drogasil/i, { base: 'https://www.drogasil.com.br', playwright: true }],
   [/droga.?raia/i, { base: 'https://www.drogaraia.com.br', playwright: true }],
   [/pague.?menos/i, { base: 'https://www.paguemenos.com.br' }],
-  [/pacheco/i, { base: 'https://www.pacheco.com.br' }],
+  [/pacheco/i, { base: 'https://www.pacheco.com.br', playwright: true }],
   [/ultrafarma/i, { base: 'https://www.ultrafarma.com.br' }],
   [/panvel/i, { base: 'https://www.panvel.com' }],
 ]
@@ -77,7 +77,14 @@ async function consultarVtex(loja: Farmacia, rede: RedeConfig, ean: string, apre
   const offer = seller?.commertialOffer
   const preco = offer?.IsAvailable && Number(offer.Price) > 0 ? Number(offer.Price) : null
   const product = products.find(product => product.items?.includes(item))
-  return montarResultado(loja, apresentacao, preco, product?.link || `${rede.base}/busca?q=${ean}`)
+  const promocao = preco ? extrairPromocao(offer, preco) : null
+  return montarResultado(
+    loja,
+    apresentacao,
+    promocao?.preco ?? preco,
+    product?.link || `${rede.base}/busca?q=${ean}`,
+    promocao ? { precoOriginal: preco, promocao: promocao.descricao, quantidadePromocional: promocao.quantidade } : undefined,
+  )
 }
 
 async function consultarComNavegador(loja: Farmacia, rede: RedeConfig, ean: string, apresentacao: ApresentacaoMedicamento) {
@@ -122,12 +129,46 @@ async function consultarSiteGenerico(loja: Farmacia, ean: string, apresentacao: 
   })
 }
 
-function montarResultado(loja: Farmacia, apresentacao: ApresentacaoMedicamento, preco: number | null, url?: string): ResultadoPreco {
+function montarResultado(
+  loja: Farmacia,
+  apresentacao: ApresentacaoMedicamento,
+  preco: number | null,
+  url?: string,
+  detalhes?: Pick<ResultadoPreco, 'precoOriginal' | 'promocao' | 'quantidadePromocional'>,
+): ResultadoPreco {
   return {
     farmaciaId: loja.id, farmacia: loja.nome, preco, disponivel: preco !== null, tipo: 'produto exato', marca: apresentacao.marca, url,
     precoUnitario: preco === null ? null : preco / Math.max(apresentacao.quantidade, 1), unidade: apresentacao.unidade,
     confiabilidade: preco === null ? 'indisponivel' : 'online_sem_loja', consultadoEm: new Date().toISOString(),
+    ...detalhes,
   }
+}
+
+function extrairPromocao(offer: any, preco: number) {
+  const nomes = (offer?.Teasers || [])
+    .map((teaser: any) => String(teaser?.['<Name>k__BackingField'] || teaser?.name || ''))
+    .filter(Boolean)
+
+  for (const descricao of nomes) {
+    const segunda = descricao.match(/(\d+(?:[,.]\d+)?)\s*%?\s*(?:de\s+)?desconto\s+na\s+segunda/i)
+    if (segunda) {
+      const desconto = Number(segunda[1].replace(',', '.')) / 100
+      if (desconto > 0 && desconto <= 1) {
+        return { preco: arredondar((preco + preco * (1 - desconto)) / 2), quantidade: 2, descricao }
+      }
+    }
+    const levePague = descricao.match(/leve\s+(\d+)\D+pague\s+(\d+)/i)
+    if (levePague) {
+      const leve = Number(levePague[1])
+      const pague = Number(levePague[2])
+      if (leve > pague && pague > 0) return { preco: arredondar(preco * pague / leve), quantidade: leve, descricao }
+    }
+  }
+  return null
+}
+
+function arredondar(value: number) {
+  return Math.round(value * 100) / 100
 }
 
 function indisponivel(loja: Farmacia, apresentacao: ApresentacaoMedicamento, url?: string) {

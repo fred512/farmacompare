@@ -59,6 +59,12 @@ const brandStyle = computed((): [string, string, string] => {
       <div class="preco" :class="{ green: isBest }">
         R$ {{ item.preco!.toFixed(2) }}
       </div>
+      <div v-if="item.promocao && item.quantidadePromocional" class="promotion">
+        cada, levando {{ item.quantidadePromocional }}
+      </div>
+      <div v-if="item.precoOriginal && item.precoOriginal > item.preco!" class="original-price">
+        1 unidade: R$ {{ item.precoOriginal.toFixed(2) }}
+      </div>
       <div v-if="item.precoUnitario !== null && item.precoUnitario !== undefined && item.unidade" class="unitario">
         R$ {{ item.precoUnitario.toFixed(2) }}/{{ item.unidade }}
       </div>
@@ -109,6 +115,8 @@ const brandStyle = computed((): [string, string, string] => {
 .preco { font-size: 19px; font-weight: 600; font-family: var(--mono); color: var(--text); letter-spacing: -0.5px; }
 .preco.green { color: var(--green); }
 .unitario { font-size:10px; color:var(--text3); font-family:var(--mono); margin-top:2px; }
+.promotion { margin-top: 1px; color: var(--green); font-size: 10px; font-weight: 600; }
+.original-price { margin-top: 1px; color: var(--text3); font-size: 9px; }
 
 .tag {
   display: inline-block;
