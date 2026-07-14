@@ -25,7 +25,7 @@ export default defineEventHandler(async (event) => {
 
   const consultas = await mapWithConcurrency(lojas, 3, async loja => {
     const cacheIdentity = `${loja.nome}:${loja.id}`
-    const chaveProduto = `v7:${chaveEquivalencia(body.apresentacao!)}`
+    const chaveProduto = `v8:${chaveEquivalencia(body.apresentacao!)}`
     const cached = getCachedPrice(chaveProduto, cacheIdentity)
     if (cached) return { result: cached, cached: true }
     const result = await consultar(loja, body.apresentacao!.principiosAtivos || body.query || body.apresentacao!.nome, body.apresentacao!)
@@ -49,7 +49,7 @@ async function consultar(loja: Farmacia, query: string, apresentacao: Apresentac
       const result = rede.playwright
         ? await consultarComNavegador(loja, rede, query, apresentacao)
         : await consultarVtex(loja, rede, query, apresentacao)
-      return result || indisponivel(loja, apresentacao, urlBusca(rede, query))
+      return result || indisponivel(loja, apresentacao, urlBusca(rede, apresentacao.nome))
     }
     if (loja.website && websitePublico(loja.website)) {
       return await consultarSiteGenerico(loja, query, apresentacao) || indisponivel(loja, apresentacao, loja.website)
@@ -57,49 +57,44 @@ async function consultar(loja: Farmacia, query: string, apresentacao: Apresentac
     return indisponivel(loja, apresentacao)
   } catch (error) {
     console.warn(`[precos] ${loja.nome}: preço não confirmado`, error)
-    return indisponivel(loja, apresentacao, rede ? urlBusca(rede, query) : loja.website)
+    return indisponivel(loja, apresentacao, rede ? urlBusca(rede, apresentacao.nome) : loja.website)
   }
 }
 
 async function consultarVtex(loja: Farmacia, rede: RedeConfig, query: string, apresentacao: ApresentacaoMedicamento) {
-  let products: any[] | null = null
-  for (let attempt = 0; attempt < 2 && !products; attempt++) {
+  const termos = [...new Set([apresentacao.ean, query].filter(Boolean))]
+  for (const termo of termos) {
     try {
-      const response = await fetch(`${rede.base}/api/catalog_system/pub/products/search?ft=${encodeURIComponent(query)}&_from=0&_to=49`, {
+      const response = await fetch(`${rede.base}/api/catalog_system/pub/products/search?ft=${encodeURIComponent(termo)}&_from=0&_to=49`, {
         headers: { Accept: 'application/json', 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(10_000),
       })
-      if (response.ok) products = await response.json()
+      if (!response.ok) continue
+      const melhor = melhorOfertaEquivalente(await response.json(), apresentacao)
+      if (!melhor) continue
+      const detalhes = melhor.promocao
+        ? { precoOriginal: melhor.preco, promocao: melhor.promocao.descricao, quantidadePromocional: melhor.promocao.quantidade }
+        : undefined
+      return montarResultado(loja, apresentacao, melhor.promocao?.preco ?? melhor.preco, melhor.product.link, detalhes)
     } catch {}
   }
-  if (!products) return null
-  const melhor = melhorOfertaEquivalente(products, apresentacao)
-  if (!melhor) return null
-  const { product, item, preco, promocao } = melhor
-  const apresentacaoEncontrada = { ...apresentacao, marca: String(product.brand || apresentacao.marca) }
-  return montarResultado(
-    loja,
-    apresentacaoEncontrada,
-    promocao?.preco ?? preco,
-    product?.link || urlBusca(rede, query),
-    promocao ? { precoOriginal: preco, promocao: promocao.descricao, quantidadePromocional: promocao.quantidade } : undefined,
-  )
+  return null
 }
 
 async function consultarComNavegador(loja: Farmacia, rede: RedeConfig, query: string, apresentacao: ApresentacaoMedicamento) {
   return withPage(async page => {
-    const response = await page.request.get(`${rede.base}/api/catalog_system/pub/products/search?ft=${encodeURIComponent(query)}&_from=0&_to=49`, { timeout: 15_000, headers: { Referer: `${rede.base}/` } })
-    if (response.ok()) {
-      const products: any[] = await response.json()
-      const melhor = melhorOfertaEquivalente(products, apresentacao)
-      if (melhor) {
-        const detalhes = melhor.promocao
-          ? { precoOriginal: melhor.preco, promocao: melhor.promocao.descricao, quantidadePromocional: melhor.promocao.quantidade }
-          : undefined
-        return montarResultado(loja, { ...apresentacao, marca: melhor.product.brand || apresentacao.marca }, melhor.promocao?.preco ?? melhor.preco, melhor.product.link, detalhes)
-      }
+    for (const termo of [...new Set([apresentacao.ean, query].filter(Boolean))]) {
+      const response = await page.request.get(`${rede.base}/api/catalog_system/pub/products/search?ft=${encodeURIComponent(termo)}&_from=0&_to=49`, { timeout: 15_000, headers: { Referer: `${rede.base}/` } })
+      if (!response.ok()) continue
+      const melhor = melhorOfertaEquivalente(await response.json(), apresentacao)
+      if (!melhor) continue
+      const detalhes = melhor.promocao
+        ? { precoOriginal: melhor.preco, promocao: melhor.promocao.descricao, quantidadePromocional: melhor.promocao.quantidade }
+        : undefined
+      return montarResultado(loja, apresentacao, melhor.promocao?.preco ?? melhor.preco, melhor.product.link, detalhes)
     }
-    await page.goto(urlBusca(rede, query), { waitUntil: 'domcontentloaded', timeout: 25_000 })
+    await page.goto(urlBusca(rede, apresentacao.nome), { waitUntil: 'domcontentloaded', timeout: 25_000 })
     await page.waitForTimeout(2500)
+    if (apresentacao.ean) return null
     const cards = page.locator('article, [data-testid*="product" i], [class*="product-card" i], [class*="ProductCard" i]')
     for (let index = 0; index < Math.min(await cards.count(), 80); index++) {
       const card = cards.nth(index)
@@ -130,6 +125,7 @@ async function consultarSiteGenerico(loja: Farmacia, query: string, apresentacao
         await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15_000 })
         const structured = extrairJsonLdExato(await page.locator('script[type="application/ld+json"]').allTextContents(), apresentacao.ean)
         if (structured?.preco) return montarResultado(loja, apresentacao, structured.preco, structured.url || page.url())
+        if (apresentacao.ean) continue
         const body = await page.locator('body').innerText({ timeout: 5_000 })
         if (!equivalente(body, apresentacao)) continue
         const match = body.match(/R\$\s*([\d.]+,\d{2})/)
@@ -161,6 +157,7 @@ function melhorOfertaEquivalente(products: any[], apresentacao: ApresentacaoMedi
   for (const product of products) {
     if (!equivalente(String(product.productName || product.productTitle || ''), apresentacao)) continue
     for (const item of product.items || []) {
+      if (apresentacao.ean && String(item.ean || item.EAN || '').replace(/\D/g, '') !== apresentacao.ean.replace(/\D/g, '')) continue
       for (const seller of item.sellers || []) {
         const offer = seller.commertialOffer
         const preco = offer?.IsAvailable && Number(offer.Price) > 0 ? Number(offer.Price) : 0
