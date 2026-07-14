@@ -16,6 +16,7 @@ const generico = computed(() => /gen[eé]rico|\bgn\b/i.test(props.item.nome))
         <span class="kind" :class="{ branded: !generico }">{{ generico ? 'genérico' : 'nome comercial' }}</span>
       </span>
       <small>{{ generico ? (item.fabricante || item.marca || 'Fabricante não informado') : `Marca ${item.marca}` }} · {{ item.quantidade }} {{ item.unidade }}{{ item.quantidade === 1 ? '' : 's' }}</small>
+      <small class="active-ingredient">Princípio ativo: {{ item.principiosAtivos }}</small>
       <small v-if="item.ean">EAN de referência {{ item.ean }}</small>
       <small class="equivalent">Compara equivalentes de outros fabricantes</small>
     </span>
@@ -33,4 +34,5 @@ const generico = computed(() => /gen[eé]rico|\bgn\b/i.test(props.item.nome))
 .kind.branded { background:var(--green-bg); color:var(--green); }
 strong { font-size:12px; font-weight:500; } small { font-size:10px; color:var(--text3); }
 .equivalent { color: var(--green); }
+.active-ingredient { color: var(--text2); }
 </style>

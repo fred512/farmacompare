@@ -67,8 +67,8 @@ async function reiniciarPesquisa() {
   apresentacaoErro.value = ''
   sortAsc.value = true
   await nextTick()
-  window.scrollTo({ top: 0, behavior: 'smooth' })
-  inputRef.value?.focus()
+  inputRef.value?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  window.setTimeout(() => inputRef.value?.focus({ preventScroll: true }), 350)
 }
 
 const comparacaoSemPreco = computed(() => Boolean(resultado.value && !disponiveis.value.length && indisponiveis.value.length))

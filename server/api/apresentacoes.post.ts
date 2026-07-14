@@ -11,14 +11,28 @@ export default defineEventHandler(async (event) => {
     ? CATALOGOS.filter(base => lojas.some(loja => /pague.?menos/i.test(loja.nome) && base.includes('paguemenos')))
     : CATALOGOS
   const catalogos = redesSelecionadas.length ? redesSelecionadas : CATALOGOS
-  const respostas = await Promise.allSettled(catalogos.map(base => buscarCatalogo(base, queryNormalizada)))
+  const respostasIniciais = await Promise.allSettled(catalogos.map(base => buscarCatalogo(base, queryNormalizada)))
+  const itensIniciaisBrutos = respostasIniciais.flatMap(resposta => resposta.status === 'fulfilled' ? resposta.value : [])
+  const principioPrincipal = itensIniciaisBrutos.find(item => item.principiosAtivos && normalizar(item.principiosAtivos) !== normalizar(queryNormalizada))?.principiosAtivos
+  const principiosIdentificados = principioPrincipal ? [principioPrincipal] : []
+  const palavrasDaMarca = normalizar(query).split(' ').filter(parte => /^[a-z]{3,}$/.test(parte) && !['comprimidos', 'capsulas'].includes(parte))
+  const itensIniciais = principioPrincipal
+    ? itensIniciaisBrutos
+        .filter(item => mesmosPrincipios(principioPrincipal, item.principiosAtivos) || (normalizar(item.principiosAtivos) === normalizar(queryNormalizada) && palavrasDaMarca.every(parte => normalizar(item.nome).includes(parte))))
+        .map(item => normalizar(item.principiosAtivos) === normalizar(queryNormalizada) ? { ...item, principiosAtivos: principioPrincipal } : item)
+    : itensIniciaisBrutos
+  const respostasExpandidas = await Promise.allSettled(
+    principiosIdentificados.flatMap(principio => catalogos.map(base => buscarCatalogo(base, principio)))
+  )
+  const itensExpandidos = respostasExpandidas
+    .flatMap(resposta => resposta.status === 'fulfilled' ? resposta.value : [])
+    .filter(item => principiosIdentificados.some(principio => mesmosPrincipios(principio, item.principiosAtivos)))
+  const dosesSolicitadas = extrairDoses(query)
   const unicos = new Map<string, ApresentacaoMedicamento>()
-  for (const resposta of respostas) {
-    if (resposta.status !== 'fulfilled') continue
-    for (const item of resposta.value) {
-      const chave = chaveEquivalencia(item)
-      if (!unicos.has(chave)) unicos.set(chave, item)
-    }
+  for (const item of [...itensIniciais, ...itensExpandidos]) {
+    if (dosesSolicitadas.length && !mesmasDoses(dosesSolicitadas, extrairDoses(item.nome))) continue
+    const chave = chaveEquivalencia(item)
+    if (!unicos.has(chave)) unicos.set(chave, item)
   }
   return [...unicos.values()]
     .sort((a, b) => Number(ehGenerico(a)) - Number(ehGenerico(b)))
@@ -41,7 +55,7 @@ async function buscarCatalogo(base: string, query: string): Promise<Apresentacao
     return [{
       ean,
       nome,
-      principiosAtivos: String(produto['Princípio Ativo']?.[0] || query),
+      principiosAtivos: String(produto.NomeSubstanciaPrincipioAtivo?.[0] || produto['Princípio Ativo']?.[0] || query),
       dosagem: String(produto.Dosagem?.[0] || extrairDosagem(nome)),
       marca: String(produto.brand || ''),
       fabricante: String(produto.Fabricante?.[0] || produto.brand || ''),
@@ -75,4 +89,26 @@ function chaveEquivalencia(item: ApresentacaoMedicamento) {
   const principio = item.principiosAtivos.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
   const dose = item.dosagem.toLowerCase().replace(/\s+/g, '')
   return `${principio}|${dose}|${item.quantidade}|${item.unidade}`
+}
+
+function extrairDoses(value: string) {
+  return (normalizar(value).match(/\d+(?:[,.]\d+)?\s*(?:mg|mcg|g|ml)/g) || [])
+    .map(dose => dose.replace(/\s+/g, '').replace(',', '.'))
+    .sort()
+}
+
+function mesmasDoses(a: string[], b: string[]) {
+  return a.length === b.length && a.every((dose, index) => dose === b[index])
+}
+
+function mesmosPrincipios(a: string, b: string) {
+  const palavrasIgnoradas = new Set(['cloridrato', 'de', 'do', 'da', 'e'])
+  const partes = (value: string) => normalizar(value).split(' ').filter(parte => parte && !palavrasIgnoradas.has(parte)).sort()
+  const esquerda = partes(a)
+  const direita = partes(b)
+  return esquerda.length === direita.length && esquerda.every((parte, index) => parte === direita[index])
+}
+
+function normalizar(value: string) {
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
 }

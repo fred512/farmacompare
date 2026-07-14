@@ -28,7 +28,7 @@ export default defineEventHandler(async (event) => {
     const chaveProduto = chaveEquivalencia(body.apresentacao!)
     const cached = getCachedPrice(chaveProduto, cacheIdentity)
     if (cached) return { result: cached, cached: true }
-    const result = await consultar(loja, body.query || body.apresentacao!.principiosAtivos, body.apresentacao!)
+    const result = await consultar(loja, body.apresentacao!.principiosAtivos || body.query || body.apresentacao!.nome, body.apresentacao!)
     setCachedPrice(chaveProduto, cacheIdentity, result)
     return { result, cached: false }
   })
