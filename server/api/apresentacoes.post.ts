@@ -13,7 +13,18 @@ export default defineEventHandler(async (event) => {
   const catalogos = redesSelecionadas.length ? redesSelecionadas : CATALOGOS
   const respostasIniciais = await Promise.allSettled(catalogos.map(base => buscarCatalogo(base, queryNormalizada)))
   const itensIniciaisBrutos = respostasIniciais.flatMap(resposta => resposta.status === 'fulfilled' ? resposta.value : [])
-  const principioPrincipal = itensIniciaisBrutos.find(item => item.principiosAtivos && normalizar(item.principiosAtivos) !== normalizar(queryNormalizada))?.principiosAtivos
+  // Só converte um nome comercial (ex.: Diamicron/Galvus) para princípio ativo
+  // quando a marca do catálogo realmente coincide com o texto pesquisado. Antes,
+  // o primeiro princípio retornado era aplicado a todos os itens e podia trocar
+  // anlodipino por hidroclorotiazida em pesquisas pelo próprio princípio ativo.
+  const consultaNormalizada = normalizar(queryNormalizada)
+  const produtoDaMarca = itensIniciaisBrutos.find(item => {
+    const marca = normalizar(item.marca || '')
+    return marca.length >= 4
+      && (consultaNormalizada === marca || consultaNormalizada.startsWith(`${marca} `))
+      && normalizar(item.principiosAtivos) !== consultaNormalizada
+  })
+  const principioPrincipal = produtoDaMarca?.principiosAtivos
   const principiosIdentificados = principioPrincipal ? [principioPrincipal] : []
   const palavrasDaMarca = normalizar(query).split(' ').filter(parte => /^[a-z]{3,}$/.test(parte) && !['comprimidos', 'capsulas'].includes(parte))
   const itensIniciais = principioPrincipal

@@ -25,7 +25,7 @@ export default defineEventHandler(async (event) => {
 
   const consultas = await mapWithConcurrency(lojas, 3, async loja => {
     const cacheIdentity = `${loja.nome}:${loja.id}`
-    const chaveProduto = chaveEquivalencia(body.apresentacao!)
+    const chaveProduto = `v7:${chaveEquivalencia(body.apresentacao!)}`
     const cached = getCachedPrice(chaveProduto, cacheIdentity)
     if (cached) return { result: cached, cached: true }
     const result = await consultar(loja, body.apresentacao!.principiosAtivos || body.query || body.apresentacao!.nome, body.apresentacao!)
