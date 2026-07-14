@@ -72,14 +72,9 @@ async function consultarVtex(loja: Farmacia, rede: RedeConfig, query: string, ap
     } catch {}
   }
   if (!products) return null
-  const product = melhorProdutoEquivalente(products, apresentacao)
-  if (!product) return null
-  const item = (product.items || []).find((entry: any) => equivalente(entry.nameComplete || entry.name || product.productName, apresentacao)) || product.items?.[0]
-  if (!item) return null
-  const seller = item.sellers?.find((entry: any) => entry.commertialOffer?.IsAvailable) || item.sellers?.[0]
-  const offer = seller?.commertialOffer
-  const preco = offer?.IsAvailable && Number(offer.Price) > 0 ? Number(offer.Price) : null
-  const promocao = preco ? extrairPromocao(offer, preco) : null
+  const melhor = melhorOfertaEquivalente(products, apresentacao)
+  if (!melhor) return null
+  const { product, item, preco, promocao } = melhor
   const apresentacaoEncontrada = { ...apresentacao, marca: String(product.brand || apresentacao.marca) }
   return montarResultado(
     loja,
@@ -95,10 +90,13 @@ async function consultarComNavegador(loja: Farmacia, rede: RedeConfig, query: st
     const response = await page.request.get(`${rede.base}/api/catalog_system/pub/products/search?ft=${encodeURIComponent(query)}&_from=0&_to=49`, { timeout: 15_000, headers: { Referer: `${rede.base}/` } })
     if (response.ok()) {
       const products: any[] = await response.json()
-      const product = melhorProdutoEquivalente(products, apresentacao)
-      const item = product?.items?.[0]
-      const offer = item?.sellers?.find((entry: any) => entry.commertialOffer?.IsAvailable)?.commertialOffer
-      if (item && offer?.Price) return montarResultado(loja, { ...apresentacao, marca: product.brand || apresentacao.marca }, Number(offer.Price), product.link)
+      const melhor = melhorOfertaEquivalente(products, apresentacao)
+      if (melhor) {
+        const detalhes = melhor.promocao
+          ? { precoOriginal: melhor.preco, promocao: melhor.promocao.descricao, quantidadePromocional: melhor.promocao.quantidade }
+          : undefined
+        return montarResultado(loja, { ...apresentacao, marca: melhor.product.brand || apresentacao.marca }, melhor.promocao?.preco ?? melhor.preco, melhor.product.link, detalhes)
+      }
     }
     await page.goto(`${rede.base}/busca?q=${encodeURIComponent(query)}`, { waitUntil: 'domcontentloaded', timeout: 25_000 })
     await page.waitForTimeout(2500)
@@ -158,29 +156,37 @@ function montarResultado(
   }
 }
 
-function melhorProdutoEquivalente(products: any[], apresentacao: ApresentacaoMedicamento) {
-  const equivalentes = products.filter(product => equivalente(String(product.productName || product.productTitle || ''), apresentacao))
-  return equivalentes.sort((a, b) => pontuarProduto(b, apresentacao) - pontuarProduto(a, apresentacao))[0]
-}
-
-function pontuarProduto(product: any, apresentacao: ApresentacaoMedicamento) {
-  const nome = normalizar(String(product.productName || ''))
-  let pontos = 0
-  if (apresentacao.ean && (product.items || []).some((item: any) => String(item.ean || '') === apresentacao.ean)) pontos += 4
-  if (/generico/.test(nome) === /generico/.test(normalizar(apresentacao.nome))) pontos += 2
-  if (normalizar(product.brand || '') === normalizar(apresentacao.marca || '')) pontos += 1
-  return pontos
+function melhorOfertaEquivalente(products: any[], apresentacao: ApresentacaoMedicamento) {
+  const ofertas: Array<{ product: any; item: any; preco: number; promocao: ReturnType<typeof extrairPromocao> }> = []
+  for (const product of products) {
+    if (!equivalente(String(product.productName || product.productTitle || ''), apresentacao)) continue
+    for (const item of product.items || []) {
+      for (const seller of item.sellers || []) {
+        const offer = seller.commertialOffer
+        const preco = offer?.IsAvailable && Number(offer.Price) > 0 ? Number(offer.Price) : 0
+        if (!preco) continue
+        ofertas.push({ product, item, preco, promocao: extrairPromocao(offer, preco) })
+      }
+    }
+  }
+  return ofertas.sort((a, b) => (a.promocao?.preco ?? a.preco) - (b.promocao?.preco ?? b.preco))[0]
 }
 
 function equivalente(texto: string, apresentacao: ApresentacaoMedicamento) {
   const nome = normalizar(texto).replace(/\s+/g, ' ')
-  const doses = (apresentacao.dosagem || apresentacao.nome).match(/\d+(?:[,.]\d+)?\s*(?:mg|mcg|g|ml)/gi) || []
-  const dosesConferem = doses.every(dose => nome.replace(/\s+/g, '').includes(normalizar(dose).replace(/\s+/g, '')))
-  if (!dosesConferem) return false
+  const dosesEsperadas = extrairDoses(apresentacao.dosagem || apresentacao.nome)
+  const dosesEncontradas = extrairDoses(nome)
+  if (dosesEsperadas.length && (dosesEsperadas.length !== dosesEncontradas.length || dosesEsperadas.some((dose, index) => dose !== dosesEncontradas[index]))) return false
   const quantidade = apresentacao.quantidade
   if (quantidade <= 1) return true
   const unidade = apresentacao.unidade === 'comprimido' ? 'comprim' : apresentacao.unidade === 'cápsula' ? 'caps' : apresentacao.unidade
   return new RegExp(`(?:com\\s+)?${quantidade}\\s*(?:${unidade}|unidade)`, 'i').test(nome)
+}
+
+function extrairDoses(value: string) {
+  return (normalizar(value).match(/\d+(?:[,.]\d+)?\s*(?:mg|mcg|g|ml)/g) || [])
+    .map(dose => dose.replace(/\s+/g, '').replace(',', '.'))
+    .sort()
 }
 
 function chaveEquivalencia(item: ApresentacaoMedicamento) {

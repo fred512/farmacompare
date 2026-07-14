@@ -56,5 +56,22 @@ export function useGeolocation() {
     }
   }
 
-  return { status, coords, enderecoLegivel, cepSugerido, erro, pedir }
+  async function buscarCep(value: string) {
+    status.value = 'loading'
+    erro.value = ''
+    try {
+      const local = await $fetch<{ lat: number; lng: number; cep: string; endereco: string }>('/api/localizacao-cep', {
+        query: { cep: value },
+      })
+      coords.value = { lat: local.lat, lng: local.lng }
+      cepSugerido.value = local.cep
+      enderecoLegivel.value = local.endereco
+      status.value = 'success'
+    } catch (e: any) {
+      status.value = 'error'
+      erro.value = e?.data?.statusMessage || 'Não foi possível localizar este CEP.'
+    }
+  }
+
+  return { status, coords, enderecoLegivel, cepSugerido, erro, pedir, buscarCep }
 }

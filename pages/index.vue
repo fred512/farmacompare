@@ -53,6 +53,11 @@ async function compararSelecionada() {
   resultsRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
+async function aplicarCep() {
+  if (cep.value.replace(/\D/g, '').length !== 8) return
+  await geo.buscarCep(cep.value)
+}
+
 const comparacaoSemPreco = computed(() => Boolean(resultado.value && !disponiveis.value.length && indisponiveis.value.length))
 
 watch(() => geo.cepSugerido.value, (value) => {
@@ -149,10 +154,11 @@ useSeoMeta({
           @ativar="geo.pedir()"
         />
 
-        <label v-if="geo.status.value === 'success'" class="cep-row">
-          <span>CEP para validar preço e entrega</span>
-          <input v-model="cep" inputmode="numeric" maxlength="9" placeholder="00000-000">
-        </label>
+        <div v-if="geo.status.value === 'success' || (geo.status.value === 'error' && cep)" class="cep-row">
+          <span>Usar outro CEP</span>
+          <input v-model="cep" inputmode="numeric" maxlength="9" placeholder="00000-000" @keyup.enter="aplicarCep">
+          <button type="button" :disabled="cep.replace(/\D/g, '').length !== 8" @click="aplicarCep">Atualizar local</button>
+        </div>
 
         <!-- Raio -->
         <div v-if="geo.status.value === 'success'" class="raio-wrap">
@@ -624,6 +630,8 @@ main { max-width: 600px; margin: 0 auto; padding: 1.25rem 1rem 5rem; }
 
 .cep-row { display:flex; align-items:center; gap:10px; margin-top:12px; font-size:11px; color:var(--text3); }
 .cep-row input { margin-left:auto; width:102px; padding:6px 8px; border: .5px solid var(--border2); border-radius:var(--radius-sm); background:var(--surface2); color:var(--text); font-family:var(--mono); }
+.cep-row button { min-height:29px; padding:0 9px; border:1px solid var(--green); border-radius:var(--radius-sm); background:var(--green-bg); color:var(--green); font:600 10px var(--font); cursor:pointer; }
+.cep-row button:disabled { opacity:.4; cursor:not-allowed; }
 .apresentacoes-list { display:flex; flex-direction:column; gap:6px; }
 .compare-selected { margin-top:12px; width:100%; }
 .presentation-loading { padding: 5px 0 2px; }
