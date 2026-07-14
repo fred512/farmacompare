@@ -28,7 +28,7 @@ export default defineNuxtConfig({
       title: 'FarmaCompare',
       meta: [
         { name: 'description', content: 'Compare preços de remédios nas farmácias mais próximas de você' },
-        { name: 'theme-color', content: '#880e4f' },
+        { name: 'theme-color', content: '#1a7a4a' },
         { name: 'mobile-web-app-capable', content: 'yes' },
         { name: 'apple-mobile-web-app-capable', content: 'yes' },
         { name: 'apple-mobile-web-app-status-bar-style', content: 'default' },

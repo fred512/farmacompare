@@ -785,7 +785,7 @@ main { max-width: 600px; margin: 0 auto; padding: 1.25rem 1rem 5rem; }
 .sort-btn { font-size: 12px; color: var(--green); background: none; border: none; cursor: pointer; font-family: var(--font); padding: 0; }
 
 .fonte-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
-.fonte-real { font-size: 11px; color: var(--success); font-weight: 500; }
+.fonte-real { font-size: 11px; color: var(--green); font-weight: 500; }
 .fonte-ia   { font-size: 11px; color: var(--amber); }
 .apresentacao { font-size: 11px; color: var(--text3); font-family: var(--mono); }
 

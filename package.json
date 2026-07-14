@@ -1,7 +1,7 @@
 {
   "name": "farmacompare",
   "version": "1.0.0",
-  "appVersion": 3,
+  "appVersion": 4,
   "private": true,
   "scripts": {
     "dev": "nuxt dev",
