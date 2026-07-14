@@ -30,6 +30,12 @@ export default defineNuxtConfig({
         { name: 'apple-mobile-web-app-capable', content: 'yes' },
         { name: 'apple-mobile-web-app-status-bar-style', content: 'default' },
       ],
+      script: [
+        {
+          innerHTML: "(()=>{try{const t=localStorage.getItem('fc_tema');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch{}})()",
+          tagPosition: 'head',
+        },
+      ],
       link: [
         { rel: 'manifest', href: '/manifest.json' },
       ]

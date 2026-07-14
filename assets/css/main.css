@@ -1,14 +1,17 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
 
-:root {
+:root,
+:root[data-theme='light'] {
+  color-scheme: light;
   --bg: #f7f6f2;
   --surface: #ffffff;
   --surface2: #f0efe9;
+  --surface3: #e7e6df;
   --border: rgba(0, 0, 0, 0.08);
   --border2: rgba(0, 0, 0, 0.14);
   --text: #1c1c1a;
-  --text2: #6b6a64;
-  --text3: #a09f99;
+  --text2: #55544f;
+  --text3: #77766f;
   --green: #1a7a4a;
   --green-bg: #eaf4ee;
   --green-light: #c8e8d4;
@@ -22,23 +25,45 @@
   --mono: 'DM Mono', monospace;
 }
 
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #111310;
+  --surface: #1b1e19;
+  --surface2: #252921;
+  --surface3: #30352b;
+  --border: rgba(255, 255, 255, 0.12);
+  --border2: rgba(255, 255, 255, 0.22);
+  --text: #faf8f1;
+  --text2: #c8c6bd;
+  --text3: #96948b;
+  --green: #55df8b;
+  --green-bg: #103522;
+  --green-light: #23583b;
+  --amber: #ffc257;
+  --amber-bg: #30220b;
+  --red: #ff7c6d;
+  --red-bg: #321713;
+}
+
 @media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #141412;
-    --surface: #1e1e1b;
-    --surface2: #27271f;
-    --border: rgba(255, 255, 255, 0.07);
-    --border2: rgba(255, 255, 255, 0.13);
-    --text: #f0ede6;
-    --text2: #9a9990;
-    --text3: #6b6a64;
-    --green: #3ecf74;
-    --green-bg: #0f2a1c;
-    --green-light: #1a4030;
-    --amber: #f5a623;
-    --amber-bg: #261a08;
-    --red: #f06050;
-    --red-bg: #251410;
+  :root:not([data-theme]) {
+    color-scheme: dark;
+    --bg: #111310;
+    --surface: #1b1e19;
+    --surface2: #252921;
+    --surface3: #30352b;
+    --border: rgba(255, 255, 255, 0.12);
+    --border2: rgba(255, 255, 255, 0.22);
+    --text: #faf8f1;
+    --text2: #c8c6bd;
+    --text3: #96948b;
+    --green: #55df8b;
+    --green-bg: #103522;
+    --green-light: #23583b;
+    --amber: #ffc257;
+    --amber-bg: #30220b;
+    --red: #ff7c6d;
+    --red-bg: #321713;
   }
 }
 
@@ -56,4 +81,5 @@ body {
   font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  transition: background-color .2s ease, color .2s ease;
 }

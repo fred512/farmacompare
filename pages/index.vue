@@ -18,6 +18,25 @@ const searchQuery = ref('')
 const cep = ref('')
 const inputRef = ref<HTMLInputElement>()
 const mostrarTodasFarmacias = ref(false)
+const tema = ref<'light' | 'dark'>('light')
+
+function aplicarTema(value: 'light' | 'dark') {
+  tema.value = value
+  document.documentElement.dataset.theme = value
+  localStorage.setItem('fc_tema', value)
+}
+
+function alternarTema() {
+  aplicarTema(tema.value === 'dark' ? 'light' : 'dark')
+}
+
+onMounted(() => {
+  const salvo = localStorage.getItem('fc_tema')
+  const preferido = salvo === 'light' || salvo === 'dark'
+    ? salvo
+    : window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  aplicarTema(preferido)
+})
 
 const farmaciasVisiveis = computed(() =>
   mostrarTodasFarmacias.value || !farmaciasMaisConsultadas.value.length
@@ -157,6 +176,17 @@ useSeoMeta({
         </svg>
       </div>
       <span class="logo-name">Farma<span>Compare</span></span>
+      <button
+        type="button"
+        class="theme-toggle"
+        :aria-label="tema === 'dark' ? 'Ativar modo claro' : 'Ativar modo escuro'"
+        :title="tema === 'dark' ? 'Modo claro' : 'Modo escuro'"
+        @click="alternarTema"
+      >
+        <svg v-if="tema === 'dark'" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4V2m0 20v-2m8-8h2M2 12h2m13.66-5.66 1.42-1.42M4.92 19.08l1.42-1.42m11.32 0 1.42 1.42M4.92 4.92l1.42 1.42M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z"/></svg>
+        <svg v-else viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 15.2A9 9 0 0 1 8.8 3.2 9 9 0 1 0 20.8 15.2Z"/></svg>
+        <span>{{ tema === 'dark' ? 'Claro' : 'Escuro' }}</span>
+      </button>
     </header>
 
     <main>
@@ -429,6 +459,23 @@ header {
 .logo-mark svg { width: 14px; height: 14px; fill: white; }
 .logo-name { font-size: 15px; font-weight: 600; color: var(--text); letter-spacing: -0.3px; }
 .logo-name span { color: var(--green); }
+.theme-toggle {
+  margin-left:auto;
+  min-height:34px;
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  padding:0 11px;
+  border:1px solid var(--border2);
+  border-radius:999px;
+  background:var(--surface2);
+  color:var(--text2);
+  font:600 11px var(--font);
+  cursor:pointer;
+  transition:background .15s, border-color .15s, color .15s;
+}
+.theme-toggle:hover { border-color:var(--green); color:var(--green); }
+.theme-toggle svg { width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
 
 main { max-width: 600px; margin: 0 auto; padding: 1.25rem 1rem 5rem; }
 
@@ -530,6 +577,8 @@ main { max-width: 600px; margin: 0 auto; padding: 1.25rem 1rem 5rem; }
   .cep-row { flex-wrap:wrap; gap:6px; }
   .cep-row span { width:100%; }
   .cep-row input { margin-left:0; flex:1; width:auto; }
+  .theme-toggle { width:36px; min-height:36px; justify-content:center; padding:0; }
+  .theme-toggle span { display:none; }
 }
 
 .search-row { display: flex; gap: 8px; }
