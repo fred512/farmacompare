@@ -2,7 +2,13 @@
 const geo = useGeolocation()
 const { farmacias, selecionadas, nomesAtivos, carregando: farmCarregando, erro: farmErro, raio, buscarProximas, toggleFarmacia } = useFarmacias()
 const { resultado, carregando: precoCarregando, erro, disponiveis, indisponiveis, melhorPreco, economia, sortAsc, historico, buscar } = usePrecos()
-const apresentacoes = useApresentacoes()
+const {
+  apresentacoes: opcoesApresentacao,
+  selecionada: apresentacaoSelecionada,
+  carregando: apresentacaoCarregando,
+  erro: apresentacaoErro,
+  buscar: buscarApresentacoes,
+} = useApresentacoes()
 
 const searchQuery = ref('')
 const cep = ref('')
@@ -28,12 +34,12 @@ watch(raio, async () => {
 
 async function handleBuscar() {
   if (!searchQuery.value.trim()) return
-  await apresentacoes.buscar(searchQuery.value)
+  await buscarApresentacoes(searchQuery.value)
 }
 
 async function compararSelecionada() {
-  if (!apresentacoes.selecionada.value || !nomesAtivos.value.length) return
-  await buscar(searchQuery.value, nomesAtivos.value, apresentacoes.selecionada.value, cep.value)
+  if (!apresentacaoSelecionada.value || !nomesAtivos.value.length) return
+  await buscar(searchQuery.value, nomesAtivos.value, apresentacaoSelecionada.value, cep.value)
 }
 
 watch(() => geo.cepSugerido.value, (value) => {
@@ -68,7 +74,7 @@ const presentationStatus = computed(() => {
   return 'O catálogo ainda está respondendo…'
 })
 
-watch(() => apresentacoes.carregando.value, (loading) => {
+watch(apresentacaoCarregando, (loading) => {
   if (presentationInterval) clearInterval(presentationInterval)
   if (!loading) {
     presentationProgress.value = 100
@@ -196,7 +202,7 @@ useSeoMeta({
           />
           <button
             class="btn-primary"
-            :disabled="precoCarregando || apresentacoes.carregando || !searchQuery.trim()"
+            :disabled="precoCarregando || apresentacaoCarregando || !searchQuery.trim()"
             @click="handleBuscar"
           >
             Comparar
@@ -204,9 +210,9 @@ useSeoMeta({
         </div>
       </div>
 
-      <div v-if="apresentacoes.carregando || apresentacoes.apresentacoes.length || apresentacoes.erro" class="card">
+      <div v-if="apresentacaoCarregando || opcoesApresentacao.length || apresentacaoErro" class="card">
         <div class="label">Escolha a apresentação exata</div>
-        <div v-if="apresentacoes.carregando" class="presentation-loading" aria-live="polite">
+        <div v-if="apresentacaoCarregando" class="presentation-loading" aria-live="polite">
           <div class="progress-meta">
             <span>{{ presentationStatus }}</span>
             <span class="progress-time">{{ presentationSeconds }}s · {{ presentationProgress }}%</span>
@@ -225,18 +231,18 @@ useSeoMeta({
           </div>
           <div class="progress-hint">A busca pode levar alguns segundos dependendo da farmácia.</div>
         </div>
-        <div v-else-if="apresentacoes.erro" class="error-note">{{ apresentacoes.erro }}</div>
+        <div v-else-if="apresentacaoErro" class="error-note">{{ apresentacaoErro }}</div>
         <template v-else>
           <div class="apresentacoes-list">
             <ApresentacaoItem
-              v-for="item in apresentacoes.apresentacoes"
+              v-for="item in opcoesApresentacao"
               :key="item.ean"
               :item="item"
-              :selecionada="apresentacoes.selecionada?.ean === item.ean"
-              @selecionar="apresentacoes.selecionada = $event"
+              :selecionada="apresentacaoSelecionada?.ean === item.ean"
+              @selecionar="apresentacaoSelecionada = $event"
             />
           </div>
-          <button class="btn-primary compare-selected" :disabled="!apresentacoes.selecionada || !nomesAtivos.length || precoCarregando" @click="compararSelecionada">
+          <button class="btn-primary compare-selected" :disabled="!apresentacaoSelecionada || !nomesAtivos.length || precoCarregando" @click="compararSelecionada">
             Comparar esta apresentação
           </button>
         </template>
