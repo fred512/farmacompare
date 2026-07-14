@@ -717,6 +717,9 @@ main { max-width: 600px; margin: 0 auto; padding: 1.25rem 1rem 5rem; }
 }
 .hero-price {
   position: relative;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
   margin-top: 2px;
   font-family: var(--display);
   font-weight: 800;
@@ -729,8 +732,6 @@ main { max-width: 600px; margin: 0 auto; padding: 1.25rem 1rem 5rem; }
 .hero-cur {
   font-size: 1.35rem;
   font-weight: 700;
-  vertical-align: top;
-  margin-right: 5px;
   letter-spacing: 0;
   opacity: .72;
 }
