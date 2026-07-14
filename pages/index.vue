@@ -17,9 +17,12 @@ const {
 const searchQuery = ref('')
 const cep = ref('')
 const inputRef = ref<HTMLInputElement>()
+const mostrarTodasFarmacias = ref(false)
 
-const nomesMaisConsultados = computed(() =>
-  [...new Set(farmaciasMaisConsultadas.value.map(f => f.nome))]
+const farmaciasVisiveis = computed(() =>
+  mostrarTodasFarmacias.value || !farmaciasMaisConsultadas.value.length
+    ? farmacias.value
+    : farmaciasMaisConsultadas.value
 )
 const resultsRef = ref<HTMLElement>()
 
@@ -59,6 +62,7 @@ async function aplicarCep() {
 }
 
 async function reiniciarPesquisa() {
+  inputRef.value?.focus()
   searchQuery.value = ''
   resultado.value = null
   erro.value = ''
@@ -68,7 +72,7 @@ async function reiniciarPesquisa() {
   sortAsc.value = true
   await nextTick()
   inputRef.value?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-  window.setTimeout(() => inputRef.value?.focus({ preventScroll: true }), 350)
+  requestAnimationFrame(() => inputRef.value?.focus({ preventScroll: true }))
 }
 
 const comparacaoSemPreco = computed(() => Boolean(resultado.value && !disponiveis.value.length && indisponiveis.value.length))
@@ -209,34 +213,39 @@ useSeoMeta({
               <span v-if="!selecionadas.size" class="selection-warning">Escolha ao menos uma</span>
             </div>
             <div class="selection-actions" aria-label="Seleção rápida de farmácias">
-              <button type="button" class="selection-btn" :class="{ active: todasSelecionadas }" @click="selecionarTodas">Todas</button>
-              <button type="button" class="selection-btn" :class="{ active: !selecionadas.size }" @click="desmarcarTodas">Nenhuma</button>
               <button
                 type="button"
                 class="selection-btn popular"
                 :disabled="!farmaciasMaisConsultadas.length"
                 @click="selecionarMaisConsultadas"
               >
-                Só mais consultadas
+                ★ Favoritas
+              </button>
+              <button type="button" class="selection-btn" :class="{ active: todasSelecionadas }" @click="selecionarTodas">Todas</button>
+              <button type="button" class="selection-btn" :class="{ active: !selecionadas.size }" @click="desmarcarTodas">Nenhuma</button>
+              <button
+                v-if="farmaciasMaisConsultadas.length && farmacias.length > farmaciasMaisConsultadas.length"
+                type="button"
+                class="expand-pharmacies"
+                :aria-expanded="mostrarTodasFarmacias"
+                @click="mostrarTodasFarmacias = !mostrarTodasFarmacias"
+              >
+                {{ mostrarTodasFarmacias ? 'Mostrar só favoritas' : `Ver todas (${farmacias.length})` }}
+                <span :class="{ rotated: mostrarTodasFarmacias }">⌄</span>
               </button>
             </div>
-            <div v-if="nomesMaisConsultados.length" class="popular-list">
-              <span class="popular-label">Mais consultadas no raio</span>
-              <div class="popular-chips">
-                <span v-for="nome in nomesMaisConsultados" :key="nome" class="popular-chip">{{ nome }}</span>
-              </div>
-            </div>
-            <p v-else class="popular-empty">Nenhuma das redes mais consultadas foi encontrada neste raio.</p>
           </div>
 
-          <div v-if="!farmCarregando && farmacias.length" class="near-list">
-            <FarmaciaItem
-              v-for="f in farmacias"
-              :key="f.id"
-              :farmacia="f"
-              :selecionada="selecionadas.has(f.id)"
-              @toggle="toggleFarmacia"
-            />
+          <div v-if="!farmCarregando && farmacias.length" class="near-list-shell">
+            <div class="near-list" tabindex="0" aria-label="Lista rolável de farmácias">
+              <FarmaciaItem
+                v-for="f in farmaciasVisiveis"
+                :key="f.id"
+                :farmacia="f"
+                :selecionada="selecionadas.has(f.id)"
+                @toggle="toggleFarmacia"
+              />
+            </div>
           </div>
 
           <div v-else-if="!farmCarregando" class="near-empty">
@@ -466,10 +475,13 @@ main { max-width: 600px; margin: 0 auto; padding: 1.25rem 1rem 5rem; }
 .near-loading { font-size: 12px; color: var(--text3); padding: 4px 0; }
 .near-empty { font-size: 12px; color: var(--text3); padding: 4px 0; }
 .near-error { font-size: 12px; color: var(--amber); padding: 4px 0 8px; }
-.near-list { display: flex; flex-direction: column; gap: 5px; }
+.near-list-shell { position:relative; border-radius:var(--radius-sm); overflow:hidden; }
+.near-list-shell::after { content:''; position:absolute; right:5px; bottom:0; left:0; height:22px; pointer-events:none; background:linear-gradient(transparent, var(--surface)); }
+.near-list { height:210px; display:flex; flex-direction:column; gap:5px; overflow-y:auto; overscroll-behavior:contain; padding-right:5px; padding-bottom:18px; scrollbar-width:thin; scrollbar-color:var(--border2) transparent; }
+.near-list:focus { outline:1px solid var(--green); outline-offset:2px; }
 .selection-tools {
   margin-bottom: 9px;
-  padding: 10px;
+  padding: 8px 9px;
   border: 0.5px solid var(--border2);
   border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--surface2) 72%, transparent);
@@ -502,33 +514,22 @@ main { max-width: 600px; margin: 0 auto; padding: 1.25rem 1rem 5rem; }
   background: var(--green-dim);
   color: var(--green);
 }
-.selection-btn.popular { margin-left: auto; }
+.selection-btn.popular { color:var(--green); }
 .selection-btn:disabled { opacity: .38; cursor: not-allowed; }
-.popular-list {
-  margin-top: 9px;
-  padding-top: 8px;
-  border-top: 0.5px solid var(--border);
-}
-.popular-label {
-  display: block;
-  margin-bottom: 6px;
-  color: var(--text3);
-  font-size: 9px;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-}
-.popular-chips { display: flex; flex-wrap: wrap; gap: 5px; }
-.popular-chip {
-  padding: 4px 7px;
-  border-radius: 5px;
-  background: var(--surface3);
-  color: var(--text2);
-  font-size: 10px;
-}
-.popular-empty { margin: 8px 0 0; color: var(--text3); font-size: 10px; }
+.expand-pharmacies { margin-left:auto; min-height:30px; padding:0 3px 0 8px; border:0; background:transparent; color:var(--green); font:600 10px var(--font); cursor:pointer; }
+.expand-pharmacies span { display:inline-block; margin-left:3px; font-size:14px; transition:transform .18s; }
+.expand-pharmacies span.rotated { transform:rotate(180deg); }
 
 @media (max-width: 520px) {
-  .selection-btn.popular { margin-left: 0; }
+  main { padding:.7rem .55rem 4.5rem; }
+  .card { padding:.85rem .8rem; border-radius:10px; }
+  .near-list { height:184px; }
+  .selection-summary { margin-bottom:6px; }
+  .selection-btn { min-height:28px; padding:0 9px; font-size:10px; }
+  .expand-pharmacies { width:100%; margin-left:0; text-align:left; padding-left:2px; }
+  .cep-row { flex-wrap:wrap; gap:6px; }
+  .cep-row span { width:100%; }
+  .cep-row input { margin-left:0; flex:1; width:auto; }
 }
 
 .search-row { display: flex; gap: 8px; }
@@ -658,6 +659,11 @@ main { max-width: 600px; margin: 0 auto; padding: 1.25rem 1rem 5rem; }
 .cep-row input { margin-left:auto; width:102px; padding:6px 8px; border: .5px solid var(--border2); border-radius:var(--radius-sm); background:var(--surface2); color:var(--text); font-family:var(--mono); }
 .cep-row button { min-height:29px; padding:0 9px; border:1px solid var(--green); border-radius:var(--radius-sm); background:var(--green-bg); color:var(--green); font:600 10px var(--font); cursor:pointer; }
 .cep-row button:disabled { opacity:.4; cursor:not-allowed; }
+@media (max-width:520px) {
+  .cep-row { flex-wrap:wrap; gap:6px; }
+  .cep-row span { width:100%; }
+  .cep-row input { margin-left:0; flex:1; width:auto; }
+}
 .apresentacoes-list { display:flex; flex-direction:column; gap:6px; }
 .compare-selected { margin-top:12px; width:100%; }
 .presentation-loading { padding: 5px 0 2px; }

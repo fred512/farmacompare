@@ -9,7 +9,7 @@ const REDES_MAIS_CONSULTADAS = [
   'pague menos',
   'drogasil',
   'droga raia',
-  'drogaria pacheco',
+  'pacheco',
   'panvel',
   'ultrafarma',
 ]
@@ -26,6 +26,11 @@ const CHAVES_DE_REDE: Array<[RegExp, string]> = [
 
 function nomeNormalizado(nome: string) {
   return nome.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+}
+
+function ehFavorita(farmacia: Farmacia) {
+  const nome = nomeNormalizado(farmacia.nome)
+  return REDES_MAIS_CONSULTADAS.some(rede => nome.includes(rede))
 }
 
 function consolidarPorMatriz(data: Farmacia[]) {
@@ -64,7 +69,8 @@ export function useFarmacias() {
       const consolidadas = consolidarPorMatriz(data)
       farmacias.value = consolidadas
       // Seleciona todas por padrão
-      selecionadas.value = new Set(consolidadas.map(f => f.id))
+      const favoritas = consolidadas.filter(ehFavorita)
+      selecionadas.value = new Set((favoritas.length ? favoritas : consolidadas).map(f => f.id))
     } catch (e: any) {
       erro.value = e?.data?.statusMessage || 'Erro ao buscar farmácias próximas.'
     } finally {
@@ -90,12 +96,7 @@ export function useFarmacias() {
     farmaciasAtivas.value.map(f => f.nome)
   )
 
-  const farmaciasMaisConsultadas = computed(() =>
-    farmacias.value.filter((farmacia) => {
-      const nome = nomeNormalizado(farmacia.nome)
-      return REDES_MAIS_CONSULTADAS.some(rede => nome.includes(rede))
-    })
-  )
+  const farmaciasMaisConsultadas = computed(() => farmacias.value.filter(ehFavorita))
 
   const todasSelecionadas = computed(() =>
     farmacias.value.length > 0 && selecionadas.value.size === farmacias.value.length
