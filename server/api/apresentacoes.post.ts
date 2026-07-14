@@ -31,7 +31,7 @@ export default defineEventHandler(async (event) => {
     ? itensIniciaisBrutos
         .filter(item => mesmosPrincipios(principioPrincipal, item.principiosAtivos) || (normalizar(item.principiosAtivos) === normalizar(queryNormalizada) && palavrasDaMarca.every(parte => normalizar(item.nome).includes(parte))))
         .map(item => normalizar(item.principiosAtivos) === normalizar(queryNormalizada) ? { ...item, principiosAtivos: principioPrincipal } : item)
-    : itensIniciaisBrutos
+    : itensIniciaisBrutos.filter(item => correspondeAConsulta(item, queryNormalizada))
   const respostasExpandidas = await Promise.allSettled(
     principiosIdentificados.flatMap(principio => catalogos.map(base => buscarCatalogo(base, principio)))
   )
@@ -118,6 +118,18 @@ function mesmosPrincipios(a: string, b: string) {
   const esquerda = partes(a)
   const direita = partes(b)
   return esquerda.length === direita.length && esquerda.every((parte, index) => parte === direita[index])
+}
+
+function correspondeAConsulta(item: ApresentacaoMedicamento, query: string) {
+  const ignoradas = new Set([
+    'de', 'da', 'do', 'das', 'dos', 'e', 'com', 'mais', 'mg', 'mcg', 'g', 'ml',
+    'comprimido', 'comprimidos', 'capsula', 'capsulas', 'revestido', 'revestidos',
+  ])
+  const termos = normalizar(query).split(' ')
+    .filter(termo => termo.length >= 3 && !ignoradas.has(termo) && !/^\d/.test(termo))
+  if (!termos.length) return true
+  const produto = normalizar(`${item.nome} ${item.principiosAtivos}`)
+  return termos.every(termo => produto.includes(termo))
 }
 
 function normalizar(value: string) {
