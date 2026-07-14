@@ -5,6 +5,19 @@
 
 import type { Farmacia } from '~/types'
 
+const REDES_MAIS_CONSULTADAS = [
+  'pague menos',
+  'drogasil',
+  'droga raia',
+  'drogaria pacheco',
+  'panvel',
+  'ultrafarma',
+]
+
+function nomeNormalizado(nome: string) {
+  return nome.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+}
+
 export function useFarmacias() {
   const farmacias = ref<Farmacia[]>([])
   const selecionadas = ref<Set<string>>(new Set())
@@ -36,8 +49,6 @@ export function useFarmacias() {
 
   function toggleFarmacia(id: string) {
     if (selecionadas.value.has(id)) {
-      // Não permite desmarcar a última
-      if (selecionadas.value.size <= 1) return
       selecionadas.value.delete(id)
     } else {
       selecionadas.value.add(id)
@@ -54,15 +65,43 @@ export function useFarmacias() {
     farmaciasAtivas.value.map(f => f.nome)
   )
 
+  const farmaciasMaisConsultadas = computed(() =>
+    farmacias.value.filter((farmacia) => {
+      const nome = nomeNormalizado(farmacia.nome)
+      return REDES_MAIS_CONSULTADAS.some(rede => nome.includes(rede))
+    })
+  )
+
+  const todasSelecionadas = computed(() =>
+    farmacias.value.length > 0 && selecionadas.value.size === farmacias.value.length
+  )
+
+  function selecionarTodas() {
+    selecionadas.value = new Set(farmacias.value.map(f => f.id))
+  }
+
+  function desmarcarTodas() {
+    selecionadas.value = new Set()
+  }
+
+  function selecionarMaisConsultadas() {
+    selecionadas.value = new Set(farmaciasMaisConsultadas.value.map(f => f.id))
+  }
+
   return {
     farmacias,
     selecionadas,
     farmaciasAtivas,
+    farmaciasMaisConsultadas,
     nomesAtivos,
+    todasSelecionadas,
     carregando,
     erro,
     raio,
     buscarProximas,
     toggleFarmacia,
+    selecionarTodas,
+    desmarcarTodas,
+    selecionarMaisConsultadas,
   }
 }

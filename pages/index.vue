@@ -1,6 +1,10 @@
 <script setup lang="ts">
 const geo = useGeolocation()
-const { farmacias, selecionadas, farmaciasAtivas, nomesAtivos, carregando: farmCarregando, erro: farmErro, raio, buscarProximas, toggleFarmacia } = useFarmacias()
+const {
+  farmacias, selecionadas, farmaciasAtivas, farmaciasMaisConsultadas, nomesAtivos,
+  todasSelecionadas, carregando: farmCarregando, erro: farmErro, raio,
+  buscarProximas, toggleFarmacia, selecionarTodas, desmarcarTodas, selecionarMaisConsultadas,
+} = useFarmacias()
 const { resultado, carregando: precoCarregando, erro, disponiveis, indisponiveis, melhorPreco, economia, sortAsc, historico, buscar } = usePrecos()
 const {
   apresentacoes: opcoesApresentacao,
@@ -13,6 +17,10 @@ const {
 const searchQuery = ref('')
 const cep = ref('')
 const inputRef = ref<HTMLInputElement>()
+
+const nomesMaisConsultados = computed(() =>
+  [...new Set(farmaciasMaisConsultadas.value.map(f => f.nome))]
+)
 const resultsRef = ref<HTMLElement>()
 
 // Raio options — padrão 3km
@@ -175,6 +183,32 @@ useSeoMeta({
           </div>
 
           <div v-if="!farmCarregando && farmErro" class="near-error">{{ farmErro }} Mantivemos os últimos resultados encontrados.</div>
+
+          <div v-if="!farmCarregando && farmacias.length" class="selection-tools">
+            <div class="selection-summary">
+              <span><strong>{{ selecionadas.size }}</strong> de {{ farmacias.length }} selecionadas</span>
+              <span v-if="!selecionadas.size" class="selection-warning">Escolha ao menos uma</span>
+            </div>
+            <div class="selection-actions" aria-label="Seleção rápida de farmácias">
+              <button type="button" class="selection-btn" :class="{ active: todasSelecionadas }" @click="selecionarTodas">Todas</button>
+              <button type="button" class="selection-btn" :class="{ active: !selecionadas.size }" @click="desmarcarTodas">Nenhuma</button>
+              <button
+                type="button"
+                class="selection-btn popular"
+                :disabled="!farmaciasMaisConsultadas.length"
+                @click="selecionarMaisConsultadas"
+              >
+                Só mais consultadas
+              </button>
+            </div>
+            <div v-if="nomesMaisConsultados.length" class="popular-list">
+              <span class="popular-label">Mais consultadas no raio</span>
+              <div class="popular-chips">
+                <span v-for="nome in nomesMaisConsultados" :key="nome" class="popular-chip">{{ nome }}</span>
+              </div>
+            </div>
+            <p v-else class="popular-empty">Nenhuma das redes mais consultadas foi encontrada neste raio.</p>
+          </div>
 
           <div v-if="!farmCarregando && farmacias.length" class="near-list">
             <FarmaciaItem
@@ -406,6 +440,69 @@ main { max-width: 600px; margin: 0 auto; padding: 1.25rem 1rem 5rem; }
 .near-empty { font-size: 12px; color: var(--text3); padding: 4px 0; }
 .near-error { font-size: 12px; color: var(--amber); padding: 4px 0 8px; }
 .near-list { display: flex; flex-direction: column; gap: 5px; }
+.selection-tools {
+  margin-bottom: 9px;
+  padding: 10px;
+  border: 0.5px solid var(--border2);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface2) 72%, transparent);
+}
+.selection-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+  color: var(--text3);
+  font-size: 11px;
+}
+.selection-summary strong { color: var(--green); }
+.selection-warning { color: var(--amber); }
+.selection-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.selection-btn {
+  min-height: 30px;
+  padding: 0 11px;
+  border: 0.5px solid var(--border2);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text2);
+  font: 600 11px var(--font);
+  cursor: pointer;
+  transition: border-color .15s, background .15s, color .15s;
+}
+.selection-btn:hover:not(:disabled), .selection-btn.active {
+  border-color: var(--green);
+  background: var(--green-dim);
+  color: var(--green);
+}
+.selection-btn.popular { margin-left: auto; }
+.selection-btn:disabled { opacity: .38; cursor: not-allowed; }
+.popular-list {
+  margin-top: 9px;
+  padding-top: 8px;
+  border-top: 0.5px solid var(--border);
+}
+.popular-label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--text3);
+  font-size: 9px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.popular-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.popular-chip {
+  padding: 4px 7px;
+  border-radius: 5px;
+  background: var(--surface3);
+  color: var(--text2);
+  font-size: 10px;
+}
+.popular-empty { margin: 8px 0 0; color: var(--text3); font-size: 10px; }
+
+@media (max-width: 520px) {
+  .selection-btn.popular { margin-left: 0; }
+}
 
 .search-row { display: flex; gap: 8px; }
 .search-input {
