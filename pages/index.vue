@@ -58,6 +58,33 @@ const loadingSteps = computed(() => {
 const loadingStep = ref(0)
 let loadingInterval: ReturnType<typeof setInterval>
 
+const presentationProgress = ref(0)
+const presentationSeconds = ref(0)
+let presentationInterval: ReturnType<typeof setInterval> | undefined
+
+const presentationStatus = computed(() => {
+  if (presentationSeconds.value < 3) return 'Conectando ao catálogo…'
+  if (presentationSeconds.value < 8) return 'Procurando apresentações e EANs…'
+  return 'O catálogo ainda está respondendo…'
+})
+
+watch(() => apresentacoes.carregando.value, (loading) => {
+  if (presentationInterval) clearInterval(presentationInterval)
+  if (!loading) {
+    presentationProgress.value = 100
+    return
+  }
+
+  const startedAt = Date.now()
+  presentationProgress.value = 6
+  presentationSeconds.value = 0
+  presentationInterval = setInterval(() => {
+    const elapsed = (Date.now() - startedAt) / 1000
+    presentationSeconds.value = Math.floor(elapsed)
+    presentationProgress.value = Math.min(92, Math.round(8 + 84 * (1 - Math.exp(-elapsed / 5))))
+  }, 250)
+})
+
 watch(precoCarregando, (val) => {
   if (val) {
     loadingStep.value = 0
@@ -67,6 +94,11 @@ watch(precoCarregando, (val) => {
   } else {
     clearInterval(loadingInterval)
   }
+})
+
+onUnmounted(() => {
+  clearInterval(loadingInterval)
+  if (presentationInterval) clearInterval(presentationInterval)
 })
 
 useSeoMeta({
@@ -164,7 +196,7 @@ useSeoMeta({
           />
           <button
             class="btn-primary"
-            :disabled="precoCarregando || !searchQuery.trim()"
+            :disabled="precoCarregando || apresentacoes.carregando || !searchQuery.trim()"
             @click="handleBuscar"
           >
             Comparar
@@ -174,7 +206,25 @@ useSeoMeta({
 
       <div v-if="apresentacoes.carregando || apresentacoes.apresentacoes.length || apresentacoes.erro" class="card">
         <div class="label">Escolha a apresentação exata</div>
-        <div v-if="apresentacoes.carregando" class="near-loading">Buscando produtos com EAN confirmado…</div>
+        <div v-if="apresentacoes.carregando" class="presentation-loading" aria-live="polite">
+          <div class="progress-meta">
+            <span>{{ presentationStatus }}</span>
+            <span class="progress-time">{{ presentationSeconds }}s · {{ presentationProgress }}%</span>
+          </div>
+          <div
+            class="progress-track"
+            role="progressbar"
+            aria-label="Progresso da busca de apresentações"
+            :aria-valuenow="presentationProgress"
+            aria-valuemin="0"
+            aria-valuemax="100"
+          >
+            <div class="progress-fill" :style="{ width: `${presentationProgress}%` }">
+              <span class="progress-glint" />
+            </div>
+          </div>
+          <div class="progress-hint">A busca pode levar alguns segundos dependendo da farmácia.</div>
+        </div>
         <div v-else-if="apresentacoes.erro" class="error-note">{{ apresentacoes.erro }}</div>
         <template v-else>
           <div class="apresentacoes-list">
@@ -456,4 +506,13 @@ main { max-width: 600px; margin: 0 auto; padding: 1.25rem 1rem 5rem; }
 .cep-row input { margin-left:auto; width:102px; padding:6px 8px; border: .5px solid var(--border2); border-radius:var(--radius-sm); background:var(--surface2); color:var(--text); font-family:var(--mono); }
 .apresentacoes-list { display:flex; flex-direction:column; gap:6px; }
 .compare-selected { margin-top:12px; width:100%; }
+.presentation-loading { padding: 5px 0 2px; }
+.progress-meta { display:flex; justify-content:space-between; align-items:center; gap:12px; color:var(--text2); font-size:12px; }
+.progress-time { color:var(--green); font-family:var(--mono); font-size:11px; white-space:nowrap; }
+.progress-track { height:8px; margin-top:10px; overflow:hidden; border:0.5px solid var(--border2); border-radius:999px; background:var(--surface2); }
+.progress-fill { position:relative; height:100%; min-width:6px; overflow:hidden; border-radius:inherit; background:var(--green); transition:width .3s ease-out; }
+.progress-glint { position:absolute; inset:0; background:linear-gradient(90deg, transparent 0%, rgba(255,255,255,.55) 50%, transparent 100%); transform:translateX(-100%); animation:progressSweep 1.35s ease-in-out infinite; }
+.progress-hint { margin-top:7px; color:var(--text3); font-size:10px; }
+@keyframes progressSweep { to { transform:translateX(100%); } }
+@media (prefers-reduced-motion: reduce) { .progress-fill { transition:none; } .progress-glint { animation:none; } }
 </style>
