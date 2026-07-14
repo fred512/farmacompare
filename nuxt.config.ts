@@ -17,7 +17,7 @@ export default defineNuxtConfig({
 
     // Chaves públicas (expostas ao client)
     public: {
-      appName: 'FarmaCompare',
+      appName: 'FarmCompare',
       appVersion: String(packageJson.appVersion),
       defaultRadius: 3000, // 3km
     }
@@ -25,7 +25,7 @@ export default defineNuxtConfig({
 
   app: {
     head: {
-      title: 'FarmaCompare',
+      title: 'FarmCompare',
       meta: [
         { name: 'description', content: 'Compare preços de remédios nas farmácias mais próximas de você' },
         { name: 'theme-color', content: '#1a7a4a' },

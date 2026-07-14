@@ -1,6 +1,6 @@
 {
-  "name": "FarmaCompare",
-  "short_name": "FarmaCompare",
+  "name": "FarmCompare",
+  "short_name": "FarmCompare",
   "description": "Compare preços de remédios nas farmácias mais próximas",
   "start_url": "/",
   "display": "standalone",

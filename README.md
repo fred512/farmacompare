@@ -1,4 +1,4 @@
-# FarmaCompare
+# FarmCompare
 
 PWA em Nuxt 3 para comparar preços reais de uma apresentação exata de medicamento nas farmácias próximas.
 

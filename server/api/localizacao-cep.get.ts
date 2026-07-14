@@ -8,12 +8,12 @@ export default defineEventHandler(async (event) => {
   const consulta = [endereco.logradouro, endereco.bairro, endereco.localidade, endereco.uf, cep, 'Brasil'].filter(Boolean).join(', ')
   const params = new URLSearchParams({ q: consulta, format: 'jsonv2', limit: '1', countrycodes: 'br' })
   let locais = await fetch(`https://nominatim.openstreetmap.org/search?${params}`, {
-    headers: { 'User-Agent': 'FarmaCompare/1.0' }, signal: AbortSignal.timeout(10_000),
+    headers: { 'User-Agent': 'FarmCompare/1.0' }, signal: AbortSignal.timeout(10_000),
   }).then(res => res.json())
   if (!locais.length) {
     const fallback = new URLSearchParams({ postalcode: cep, country: 'Brasil', format: 'jsonv2', limit: '1' })
     locais = await fetch(`https://nominatim.openstreetmap.org/search?${fallback}`, {
-      headers: { 'User-Agent': 'FarmaCompare/1.0' }, signal: AbortSignal.timeout(10_000),
+      headers: { 'User-Agent': 'FarmCompare/1.0' }, signal: AbortSignal.timeout(10_000),
     }).then(res => res.json())
   }
   if (!locais.length) throw createError({ statusCode: 404, statusMessage: 'Não foi possível localizar este CEP no mapa.' })

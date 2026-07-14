@@ -114,7 +114,7 @@ async function buscarViaOverpass({ lat, lng, raio }: {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
-          'User-Agent': 'FarmaCompare/1.0 (https://github.com/fred512/farmacompare)',
+          'User-Agent': 'FarmCompare/1.0 (https://github.com/fred512/farmacompare)',
           Accept: 'application/json',
         },
         body: `data=${encodeURIComponent(query)}`,
