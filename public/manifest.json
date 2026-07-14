@@ -1,0 +1,14 @@
+{
+  "name": "FarmaCompare",
+  "short_name": "FarmaCompare",
+  "description": "Compare preços de remédios nas farmácias mais próximas",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f7f6f2",
+  "theme_color": "#1a7a4a",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

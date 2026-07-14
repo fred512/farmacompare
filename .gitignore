@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+
+# Nuxt build output
+.nuxt/
+.output/
+.data/
+dist/
+
+# Environment and local secrets
+.env
+.env.*
+!.env.example
+
+# Local database and runtime data
+*.db
+*.db-shm
+*.db-wal
+data/
+
+# Test and browser artifacts
+playwright-report/
+test-results/
+
+# Logs and editor files
+*.log
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
