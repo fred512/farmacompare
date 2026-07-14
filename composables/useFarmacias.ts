@@ -18,7 +18,6 @@ export function useFarmacias() {
   async function buscarProximas(lat: number, lng: number) {
     carregando.value = true
     erro.value = ''
-    farmacias.value = []
 
     try {
       const data = await $fetch<Farmacia[]>('/api/farmacias-proximas', {

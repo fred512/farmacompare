@@ -6,7 +6,8 @@ export default defineEventHandler(async (event) => {
   const { query } = await readBody<BuscaApresentacoesPayload>(event)
   if (!query?.trim()) throw createError({ statusCode: 400, statusMessage: 'Informe o medicamento.' })
 
-  const respostas = await Promise.allSettled(CATALOGOS.map(base => buscarCatalogo(base, query.trim())))
+  const queryNormalizada = query.trim().replace(/[+&,/]+/g, ' ').replace(/\s+/g, ' ')
+  const respostas = await Promise.allSettled(CATALOGOS.map(base => buscarCatalogo(base, queryNormalizada)))
   const unicos = new Map<string, ApresentacaoMedicamento>()
   for (const resposta of respostas) {
     if (resposta.status !== 'fulfilled') continue

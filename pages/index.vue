@@ -1,6 +1,6 @@
 <script setup lang="ts">
 const geo = useGeolocation()
-const { farmacias, selecionadas, nomesAtivos, carregando: farmCarregando, raio, buscarProximas, toggleFarmacia } = useFarmacias()
+const { farmacias, selecionadas, nomesAtivos, carregando: farmCarregando, erro: farmErro, raio, buscarProximas, toggleFarmacia } = useFarmacias()
 const { resultado, carregando: precoCarregando, erro, disponiveis, indisponiveis, melhorPreco, economia, sortAsc, historico, buscar } = usePrecos()
 const apresentacoes = useApresentacoes()
 
@@ -131,7 +131,9 @@ useSeoMeta({
             Buscando farmácias no raio de {{ raio >= 1000 ? (raio / 1000).toFixed(0) + ' km' : raio + 'm' }}…
           </div>
 
-          <div v-else-if="farmacias.length" class="near-list">
+          <div v-if="!farmCarregando && farmErro" class="near-error">{{ farmErro }} Mantivemos os últimos resultados encontrados.</div>
+
+          <div v-if="!farmCarregando && farmacias.length" class="near-list">
             <FarmaciaItem
               v-for="f in farmacias"
               :key="f.id"
@@ -141,7 +143,7 @@ useSeoMeta({
             />
           </div>
 
-          <div v-else class="near-empty">
+          <div v-else-if="!farmCarregando" class="near-empty">
             Nenhuma farmácia encontrada neste raio. Tente aumentar o raio.
           </div>
         </div>
@@ -334,6 +336,7 @@ main { max-width: 600px; margin: 0 auto; padding: 1.25rem 1rem 5rem; }
 .near-section { margin-top: 14px; }
 .near-loading { font-size: 12px; color: var(--text3); padding: 4px 0; }
 .near-empty { font-size: 12px; color: var(--text3); padding: 4px 0; }
+.near-error { font-size: 12px; color: var(--amber); padding: 4px 0 8px; }
 .near-list { display: flex; flex-direction: column; gap: 5px; }
 
 .search-row { display: flex; gap: 8px; }
