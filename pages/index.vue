@@ -58,6 +58,19 @@ async function aplicarCep() {
   await geo.buscarCep(cep.value)
 }
 
+async function reiniciarPesquisa() {
+  searchQuery.value = ''
+  resultado.value = null
+  erro.value = ''
+  opcoesApresentacao.value = []
+  apresentacaoSelecionada.value = null
+  apresentacaoErro.value = ''
+  sortAsc.value = true
+  await nextTick()
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+  inputRef.value?.focus()
+}
+
 const comparacaoSemPreco = computed(() => Boolean(resultado.value && !disponiveis.value.length && indisponiveis.value.length))
 
 watch(() => geo.cepSugerido.value, (value) => {
@@ -356,6 +369,14 @@ useSeoMeta({
             <a v-if="item.url" :href="item.url" target="_blank" rel="noopener">consultar no site ↗</a>
           </div>
         </div>
+
+        <div class="restart-wrap">
+          <span>Terminou esta comparação?</span>
+          <button type="button" class="restart-button" @click="reiniciarPesquisa">
+            <span aria-hidden="true">↻</span>
+            Pesquisar outro medicamento
+          </button>
+        </div>
       </div>
 
       <!-- Histórico -->
@@ -612,6 +633,11 @@ main { max-width: 600px; margin: 0 auto; padding: 1.25rem 1rem 5rem; }
   margin-top: 6px;
 }
 .unavail strong { display:block; color:var(--text2); margin-bottom:5px; font-weight:500; }
+.restart-wrap { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:18px; padding:14px 0 2px; border-top:.5px solid var(--border2); color:var(--text3); font-size:11px; }
+.restart-button { display:inline-flex; align-items:center; gap:7px; min-height:36px; padding:0 14px; border:1px solid var(--green); border-radius:var(--radius-sm); background:transparent; color:var(--green); font:600 11px var(--font); cursor:pointer; transition:background .15s, color .15s; }
+.restart-button:hover { background:var(--green); color:var(--surface); }
+.restart-button span { font:500 17px var(--mono); }
+@media (max-width:520px) { .restart-wrap { align-items:stretch; flex-direction:column; } .restart-button { justify-content:center; } }
 .unavail-item { display:flex; justify-content:space-between; gap:8px; padding:3px 0; }
 .unavail-item a { color:var(--green); text-decoration:none; }
 

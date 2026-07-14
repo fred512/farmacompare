@@ -8,7 +8,7 @@ const REDES: Array<[RegExp, RedeConfig]> = [
   [/drogasil/i, { base: 'https://www.drogasil.com.br', playwright: true }],
   [/droga.?raia/i, { base: 'https://www.drogaraia.com.br', playwright: true }],
   [/pague.?menos/i, { base: 'https://www.paguemenos.com.br' }],
-  [/pacheco/i, { base: 'https://www.pacheco.com.br', playwright: true }],
+  [/pacheco/i, { base: 'https://www.drogariaspacheco.com.br', playwright: true }],
   [/ultrafarma/i, { base: 'https://www.ultrafarma.com.br' }],
   [/panvel/i, { base: 'https://www.panvel.com' }],
 ]
@@ -200,7 +200,12 @@ function normalizar(value: string) {
 }
 
 function urlBusca(rede: RedeConfig, query: string) {
-  const parametro = /drogasil|drogaraia/.test(new URL(rede.base).hostname) ? `/search?w=` : `/busca?q=`
+  const host = new URL(rede.base).hostname
+  if (host.includes('drogariaspacheco')) {
+    const slug = normalizar(query).trim().replace(/[^a-z0-9]+/g, '-')
+    return `${rede.base}/${encodeURIComponent(slug)}`
+  }
+  const parametro = /drogasil|drogaraia/.test(host) ? `/search?w=` : `/busca?q=`
   return `${rede.base}${parametro}${encodeURIComponent(query)}`
 }
 
