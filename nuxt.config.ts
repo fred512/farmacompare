@@ -1,3 +1,5 @@
+import packageJson from './package.json'
+
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   devtools: { enabled: true },
@@ -16,7 +18,7 @@ export default defineNuxtConfig({
     // Chaves públicas (expostas ao client)
     public: {
       appName: 'FarmaCompare',
-      appVersion: '1.0.0',
+      appVersion: String(packageJson.appVersion),
       defaultRadius: 3000, // 3km
     }
   },
