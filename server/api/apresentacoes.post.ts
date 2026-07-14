@@ -13,11 +13,13 @@ export default defineEventHandler(async (event) => {
     if (resposta.status !== 'fulfilled') continue
     for (const item of resposta.value) unicos.set(item.ean, item)
   }
-  return [...unicos.values()].slice(0, 12)
+  return [...unicos.values()]
+    .sort((a, b) => Number(ehGenerico(a)) - Number(ehGenerico(b)))
+    .slice(0, 18)
 })
 
 async function buscarCatalogo(base: string, query: string): Promise<ApresentacaoMedicamento[]> {
-  const url = `${base}/api/catalog_system/pub/products/search?ft=${encodeURIComponent(query)}&_from=0&_to=19`
+  const url = `${base}/api/catalog_system/pub/products/search?ft=${encodeURIComponent(query)}&_from=0&_to=49`
   const res = await fetch(url, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(10_000) })
   if (!res.ok) return []
   const produtos = await res.json()
@@ -56,4 +58,8 @@ function unidadeDaApresentacao(texto: string): UnidadeDose {
 
 function extrairDosagem(nome: string) {
   return nome.match(/\d+(?:[,.]\d+)?\s*(?:mg|mcg|g|ml)(?:\s*\+\s*\d+(?:[,.]\d+)?\s*(?:mg|mcg|g|ml))?/gi)?.join(' + ') || ''
+}
+
+function ehGenerico(item: ApresentacaoMedicamento) {
+  return /gen[eé]rico|\bgn\b/i.test(item.nome)
 }

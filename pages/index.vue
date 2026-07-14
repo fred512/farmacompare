@@ -13,6 +13,7 @@ const {
 const searchQuery = ref('')
 const cep = ref('')
 const inputRef = ref<HTMLInputElement>()
+const resultsRef = ref<HTMLElement>()
 
 // Raio options — padrão 3km
 const raioOpcoes = [
@@ -40,7 +41,11 @@ async function handleBuscar() {
 async function compararSelecionada() {
   if (!apresentacaoSelecionada.value || !nomesAtivos.value.length) return
   await buscar(searchQuery.value, nomesAtivos.value, apresentacaoSelecionada.value, cep.value)
+  await nextTick()
+  resultsRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
+
+const comparacaoSemPreco = computed(() => Boolean(resultado.value && !disponiveis.value.length && indisponiveis.value.length))
 
 watch(() => geo.cepSugerido.value, (value) => {
   if (value && !cep.value) cep.value = value
@@ -258,7 +263,14 @@ useSeoMeta({
       <div v-else-if="erro" class="error-note">{{ erro }}</div>
 
       <!-- Resultados -->
-      <template v-else-if="resultado">
+      <div v-else-if="resultado" ref="resultsRef" class="results-section">
+        <div v-if="comparacaoSemPreco" class="comparison-complete" role="status">
+          <div class="complete-icon">!</div>
+          <div>
+            <strong>Comparação concluída, mas nenhum preço foi confirmado</strong>
+            <p>As farmácias encontradas neste raio não possuem integração de preço disponível. Você pode consultar cada loja abaixo.</p>
+          </div>
+        </div>
         <!-- Dica de economia -->
         <div v-if="economia > 0.5" class="save-card">
           <span class="save-icon">💡</span>
@@ -304,7 +316,7 @@ useSeoMeta({
             <a v-if="item.url" :href="item.url" target="_blank" rel="noopener">consultar no site ↗</a>
           </div>
         </div>
-      </template>
+      </div>
 
       <!-- Histórico -->
       <div v-if="historico.length && !resultado && !precoCarregando" class="history">
@@ -484,6 +496,11 @@ main { max-width: 600px; margin: 0 auto; padding: 1.25rem 1rem 5rem; }
 .apresentacao { font-size: 11px; color: var(--text3); font-family: var(--mono); }
 
 .result-list { display: flex; flex-direction: column; gap: 6px; }
+.results-section { scroll-margin-top:70px; }
+.comparison-complete { display:flex; gap:11px; align-items:flex-start; margin-bottom:12px; padding:12px 14px; border:.5px solid var(--border2); border-left:3px solid var(--amber); border-radius:var(--radius); background:var(--amber-bg); }
+.complete-icon { width:22px; height:22px; flex:0 0 22px; display:grid; place-items:center; border-radius:50%; background:var(--amber); color:var(--surface); font:600 12px var(--mono); }
+.comparison-complete strong { display:block; color:var(--text); font-size:12px; font-weight:600; }
+.comparison-complete p { margin-top:3px; color:var(--text2); font-size:11px; line-height:1.45; }
 
 .unavail {
   font-size: 12px; color: var(--text3);
