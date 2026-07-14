@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Projeto
 
-FarmaCompare — PWA em Nuxt 3 + Vue 3 (Tailwind, Pinia) para comparar preços de remédios nas farmácias próximas do usuário. Não há testes nem linter configurados. Não é repositório git e não está publicado (roda só localmente).
+FarmCompare — PWA em Nuxt 3 + Vue 3 (Tailwind, Pinia) para comparar preços de remédios nas farmácias próximas do usuário. Não há testes nem linter configurados. É repositório git publicado em `github.com/fred512/farmacompare`; roda localmente e tem `Dockerfile` + `railway.toml` para deploy em container.
 
 ## Comandos
 
@@ -14,35 +14,40 @@ npm run build      # build de produção
 npm run preview    # serve o build
 ```
 
-Configuração via `.env` (ver `.env.example`). Hoje só `ANTHROPIC_API_KEY` está configurada. `GOOGLE_PLACES_API_KEY` e `PHARMADB_API_KEY` são opcionais e afetam quais caminhos de código rodam (ver cascatas abaixo).
+Configuração via `.env` (ver `.env.example`). Variáveis relevantes:
+- `GOOGLE_PLACES_API_KEY` (opcional) — se presente, usa Google Places em vez de Overpass para farmácias próximas.
+- `DATABASE_PATH` (opcional) — caminho do SQLite do cache de preços (default `./data/farmacompare.db`).
+- `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` (opcional) — Chromium externo para o Playwright (útil no container).
+
+> O fallback de preços por IA foi **removido**: Claude não é mais usado para inventar/estimar preços. `ANTHROPIC_API_KEY` não participa mais do fluxo de preços.
 
 ## Arquitetura
 
-Fluxo de dados (tudo client → server routes do Nitro → APIs externas):
+Fluxo em **duas etapas** (tudo client → server routes do Nitro → APIs externas):
 
 1. `composables/useGeolocation.ts` pega coordenadas do browser e endereço legível via Nominatim.
-2. `composables/useFarmacias.ts` → POST `/api/farmacias-proximas` (`server/api/farmacias-proximas.post.ts`). Cascata: Google Places (se houver chave) → Overpass/OpenStreetMap → lista simulada hardcoded. A resposta é cacheada 5 min via `routeRules` no `nuxt.config.ts`.
-3. `composables/usePrecos.ts` → POST `/api/precos` (`server/api/precos.post.ts`). Cascata por farmácia: API VTEX Intelligent Search → API VTEX catalog_system → scraping de `__NEXT_DATA__`/JSON-LD do HTML de busca → fallback Claude (inventa preços "realistas").
-4. `pages/index.vue` orquestra tudo; `PrecoCard.vue` renderiza cada resultado; `types/index.ts` tem todos os contratos compartilhados.
+2. `composables/useFarmacias.ts` → POST `/api/farmacias-proximas` (`server/api/farmacias-proximas.post.ts`). Cascata: Google Places (se houver chave) → Overpass/OpenStreetMap (agora com header `Content-Type: application/x-www-form-urlencoded`, com 3 endpoints de fallback) → lista simulada. Cacheada 5 min via `routeRules` no `nuxt.config.ts`. Nomes normalizados por `normalizarNomeFarmacia`.
+3. **Etapa 1 — escolher apresentação:** `composables/useApresentacoes.ts` → POST `/api/apresentacoes` (`server/api/apresentacoes.post.ts`). Busca o catálogo VTEX da Pague Menos e devolve as apresentações reais (EAN, dose, quantidade, unidade) que casam com a query, deduplicadas por `chaveEquivalencia` (princípio+dose+qtd+unidade). O usuário escolhe uma (`components/ApresentacaoItem.vue`).
+4. **Etapa 2 — comparar preço do produto exato:** `composables/usePrecos.ts` → POST `/api/precos` (`server/api/precos.post.ts`). Para cada farmácia **do raio**, cascata definida no array `REDES`:
+   - VTEX `catalog_system` via `fetch` direto (`consultarVtex`), ou
+   - **Playwright** (`consultarComNavegador`) para as redes anti-bot marcadas `playwright: true` (Drogasil, Droga Raia, Pacheco), ou
+   - site genérico via Playwright + JSON-LD/regex de `R$` (`consultarSiteGenerico`) quando a farmácia tem `website` público.
+   - Sem preço confirmado → card **`indisponivel`** (preço `null`) com link para a loja. **Nunca** preço de IA.
+   - Matching por `equivalente()` (confere dose + quantidade/unidade) para não comparar apresentações diferentes.
+5. `pages/index.vue` orquestra tudo; `components/PrecoCard.vue` renderiza cada resultado; `components/FarmaciaItem.vue`/`LocationBar.vue` a UI de seleção; `types/index.ts` tem os contratos compartilhados.
 
-O mapa `VTEX_BASES` em `precos.post.ts` define quais redes têm busca real (Drogasil, Droga Raia, Pague Menos, Pacheco, Ultrafarma, Panvel). Farmácias fora desse mapa caem direto no Claude.
+**Cache de preços (`server/services/price-cache.ts`):** SQLite (`better-sqlite3`), TTL de 12h, chave = `chaveEquivalencia(apresentação) + nome:id da loja`. `fonte` da resposta é `'cache'` se tudo veio do cache, senão `'real'`.
 
-A ligação entre farmácia próxima (nome vindo do OSM/Google) e loja online é feita por nome normalizado (`normalizarNomeFarmacia` em `farmacias-proximas.post.ts` + chaves de `VTEX_BASES`) — os nomes precisam bater exatamente.
+**Playwright (`server/services/scrapers/browser.ts`):** um único browser Chromium headless (`getBrowser`) reaproveitado; `withPage()` cria/descarta um context por consulta. `scrapers/paguemenos.ts` é um scraper específico; `scrapers/types.ts` os tipos.
 
-## Bugs conhecidos (diagnóstico de 2026-06-10, confirmado com testes ao vivo)
+## Estado atual
 
-Há um redesign aprovado em conversa, ainda não implementado. Causas-raiz dos preços errados que motivaram a parada do projeto:
+Os 5 bugs que motivaram a parada do projeto (diagnóstico de 2026-06-10) **foram todos corrigidos** neste redesign:
 
-1. **Overpass retorna HTTP 406**: a requisição em `farmacias-proximas.post.ts` não envia `Content-Type: application/x-www-form-urlencoded`. Com o header, funciona (testado: 10 farmácias reais em Vitória-ES, cidade do usuário).
-2. **Raio ignorado**: `handleBuscar` em `pages/index.vue` usa lista fixa de redes nacionais quando nenhuma farmácia é encontrada no raio.
-3. **Preços de IA disfarçados**: quando a VTEX falha para algumas farmácias, `precos.post.ts` completa com preços inventados pelo Claude mas mantém `fonte: 'real'` — a UI mostra "✓ preços reais dos sites" para dados fictícios.
-4. **Drogasil/Droga Raia bloqueiam** requisições diretas (anti-bot Akamai). As demais redes VTEX funcionam e o preço bate com o site.
-5. **Produto trocado**: `parseVtexProducts` pega o primeiro resultado da busca, então apresentações diferentes (gotas vs 10cp vs 30cp) são comparadas entre farmácias.
+1. Overpass 406 → header `application/x-www-form-urlencoded` adicionado.
+2. Raio ignorado → `handleBuscar` usa `farmaciasAtivas` (só as do raio) e `watch(raio)` re-busca; sem lista nacional hardcoded.
+3. Preços de IA disfarçados → fallback Claude removido; sem preço = card `indisponivel`.
+4. Drogasil/Droga Raia bloqueados → agora via Playwright.
+5. Produto trocado → fluxo em duas etapas por EAN + `equivalente()`/`chaveEquivalencia`.
 
-## Redesign planejado (decisões já tomadas com o usuário)
-
-- Scraping com Playwright stealth para as redes bloqueadas; sem preço real → card "indisponível" com link (nunca preço de IA — remover o fallback Claude de preços).
-- Fluxo em duas etapas: busca mostra apresentações encontradas → usuário escolhe → comparação do produto exato por EAN entre as farmácias do raio.
-- Só comparar farmácias realmente encontradas no raio.
-- Cache de preços 12h por EAN+farmácia (SQLite).
-- Publicar como container Docker único (Nuxt + Chromium) em Railway/Render; antes disso, criar repositório git.
+Pendências conhecidas: deploy do container ainda não confirmado em produção.

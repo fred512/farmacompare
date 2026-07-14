@@ -22,6 +22,9 @@ data/
 playwright-report/
 test-results/
 
+# Graphify output (code graph + cache)
+graphify-out/
+
 # Logs and editor files
 *.log
 .DS_Store
