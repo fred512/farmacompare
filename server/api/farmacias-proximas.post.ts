@@ -41,7 +41,7 @@ async function buscarViaGooglePlaces({ lat, lng, raio, apiKey }: {
 
   const body = {
     includedTypes: ['pharmacy', 'drugstore'],
-    maxResultCount: 10,
+    maxResultCount: 20,
     locationRestriction: {
       circle: {
         center: { latitude: lat, longitude: lng },
@@ -55,7 +55,7 @@ async function buscarViaGooglePlaces({ lat, lng, raio, apiKey }: {
     headers: {
       'Content-Type': 'application/json',
       'X-Goog-Api-Key': apiKey,
-      'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.location,places.currentOpeningHours,places.id,places.internationalPhoneNumber'
+      'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.location,places.currentOpeningHours,places.id,places.internationalPhoneNumber,places.websiteUri'
     },
     body: JSON.stringify(body)
   })
@@ -82,6 +82,7 @@ async function buscarViaGooglePlaces({ lat, lng, raio, apiKey }: {
       lat: placeLat,
       lng: placeLng,
       telefone: p.internationalPhoneNumber || '',
+      website: p.websiteUri || undefined,
       googlePlaceId: p.id,
     } satisfies Farmacia
   }).sort((a: Farmacia, b: Farmacia) => a.distancia_m - b.distancia_m)
@@ -98,7 +99,7 @@ async function buscarViaOverpass({ lat, lng, raio }: {
       way["amenity"="pharmacy"](around:${raio},${lat},${lng});
       node["shop"="chemist"](around:${raio},${lat},${lng});
     );
-    out center 10;
+    out center;
   `
 
   const endpoints = [
@@ -138,10 +139,11 @@ async function buscarViaOverpass({ lat, lng, raio }: {
         aberta: true,
         lat: elLat,
         lng: elLng,
+        telefone: el.tags.phone || el.tags['contact:phone'],
+        website: normalizarWebsite(el.tags.website || el.tags['contact:website']),
       } satisfies Farmacia
     })
     .sort((a: Farmacia, b: Farmacia) => a.distancia_m - b.distancia_m)
-    .slice(0, 8)
 }
 
 // --- Helpers ---
@@ -176,4 +178,9 @@ function normalizarNomeFarmacia(nome: string): string {
   }
   // Capitaliza o nome original
   return nome.replace(/\b\w/g, c => c.toUpperCase()).toLowerCase().replace(/\b\w/g, c => c.toUpperCase())
+}
+
+function normalizarWebsite(value?: string) {
+  if (!value) return undefined
+  try { return new URL(/^https?:\/\//i.test(value) ? value : `https://${value}`).toString() } catch { return undefined }
 }

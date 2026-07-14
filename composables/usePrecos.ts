@@ -3,7 +3,7 @@
  * Busca preços de um remédio nas farmácias selecionadas.
  */
 
-import type { ApresentacaoMedicamento, RespostaPrecos, ResultadoPreco } from '~/types'
+import type { ApresentacaoMedicamento, Farmacia, RespostaPrecos, ResultadoPreco } from '~/types'
 
 export function usePrecos() {
   const resultado = ref<RespostaPrecos | null>(null)
@@ -20,8 +20,8 @@ export function usePrecos() {
     } catch {}
   })
 
-  async function buscar(q: string, farmacias: string[], apresentacao?: ApresentacaoMedicamento, cep?: string) {
-    if (!q.trim() || !farmacias.length) return
+  async function buscar(q: string, lojas: Farmacia[], apresentacao?: ApresentacaoMedicamento, cep?: string) {
+    if (!q.trim() || !lojas.length) return
 
     query.value = q.trim()
     carregando.value = true
@@ -35,7 +35,7 @@ export function usePrecos() {
     try {
       resultado.value = await $fetch<RespostaPrecos>('/api/precos', {
         method: 'POST',
-        body: { query: q.trim(), farmacias, ean: apresentacao?.ean, apresentacao, cep }
+        body: { query: q.trim(), farmacias: lojas.map(loja => loja.nome), lojas, ean: apresentacao?.ean, apresentacao, cep }
       })
     } catch (e: any) {
       erro.value = e?.data?.statusMessage || 'Erro ao buscar preços. Tente novamente.'

@@ -65,7 +65,7 @@ const brandStyle = computed((): [string, string, string] => {
       <div class="tags-row">
         <div v-if="isBest" class="tag tag-best">menor preço</div>
         <div v-else-if="diff > 0.5" class="tag tag-diff">+R$ {{ diff.toFixed(2) }}</div>
-        <a v-if="item.url" :href="item.url" target="_blank" rel="noopener" class="tag tag-link">ver site ↗</a>
+        <a v-if="item.url" :href="item.url" target="_blank" rel="noopener" class="tag tag-link">Escolher oferta ↗</a>
       </div>
     </div>
   </div>

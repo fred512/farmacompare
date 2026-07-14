@@ -1,6 +1,6 @@
 <script setup lang="ts">
 const geo = useGeolocation()
-const { farmacias, selecionadas, nomesAtivos, carregando: farmCarregando, erro: farmErro, raio, buscarProximas, toggleFarmacia } = useFarmacias()
+const { farmacias, selecionadas, farmaciasAtivas, nomesAtivos, carregando: farmCarregando, erro: farmErro, raio, buscarProximas, toggleFarmacia } = useFarmacias()
 const { resultado, carregando: precoCarregando, erro, disponiveis, indisponiveis, melhorPreco, economia, sortAsc, historico, buscar } = usePrecos()
 const {
   apresentacoes: opcoesApresentacao,
@@ -40,7 +40,7 @@ async function handleBuscar() {
 
 async function compararSelecionada() {
   if (!apresentacaoSelecionada.value || !nomesAtivos.value.length) return
-  await buscar(searchQuery.value, nomesAtivos.value, apresentacaoSelecionada.value, cep.value)
+  await buscar(searchQuery.value, farmaciasAtivas.value, apresentacaoSelecionada.value, cep.value)
   await nextTick()
   resultsRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
@@ -299,7 +299,7 @@ useSeoMeta({
         <div class="result-list">
           <PrecoCard
             v-for="(item, i) in disponiveis"
-            :key="item.farmacia"
+            :key="item.farmaciaId || `${item.farmacia}-${i}`"
             :item="item"
             :is-best="i === 0"
             :diff="item.preco! - (melhorPreco?.preco ?? 0)"
@@ -311,7 +311,7 @@ useSeoMeta({
         <!-- Sem estoque -->
         <div v-if="indisponiveis.length" class="unavail">
           <strong>Preço não confirmado</strong>
-          <div v-for="item in indisponiveis" :key="item.farmacia" class="unavail-item">
+          <div v-for="(item, i) in indisponiveis" :key="item.farmaciaId || `${item.farmacia}-${i}`" class="unavail-item">
             <span>{{ item.farmacia }}</span>
             <a v-if="item.url" :href="item.url" target="_blank" rel="noopener">consultar no site ↗</a>
           </div>

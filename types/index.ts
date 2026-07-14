@@ -8,6 +8,7 @@ export interface Farmacia {
   lat?: number
   lng?: number
   telefone?: string
+  website?: string
   googlePlaceId?: string
 }
 
@@ -36,6 +37,7 @@ export type ConfiabilidadePreco =
 
 // Resultado de preço de um remédio em uma farmácia
 export interface ResultadoPreco {
+  farmaciaId?: string
   farmacia: string
   preco: number | null
   disponivel: boolean
@@ -71,6 +73,7 @@ export interface BuscaPrecoPayload {
   ean?: string
   cep?: string
   apresentacao?: ApresentacaoMedicamento
+  lojas?: Farmacia[]
 }
 
 export interface BuscaApresentacoesPayload {
